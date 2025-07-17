@@ -1,0 +1,772 @@
+---
+title: "McMurdo Dry Valleys Nutrient Limitation"
+subtitle: "  \n Growth Response Ratios"
+author: "Adam J. Solon"
+date: "`r Sys.Date()`"
+#output: html_document
+output: 
+  pdf_document:
+    toc: TRUE
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+    keep_md: true
+fontsize: 12pt
+#editor_options: 
+#  chunk_output_type: console
+---
+  
+# Script Summary  
+This report quantifies the response of the growth of primary producers from nutrient enrichments in sediments collected from three basins in Taylor Valley of the McMurdo Dry Valleys. The ratios are comparisons of the photoautotrophic growth in treatments to the growth in controls (i.e. no nutrients added). There are four treatment groups from each basin: CTRL (controls with H2O only), N (nitrogen + H2O only), P (phosphorus + H2O only), and NP (N and P combined + H2O). Response ratios provide a quantitative effect size metric that allows for comparisons within and across basins.
+
+### Steps of this pipeline:  
+1.  Create and organize directories
+2.  Load R packages
+3.  Input files
+4.  Format Files
+5.  Compute response ratios
+6.  Create plots 
+7.  Save files
+
+```{r echo = FALSE, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+
+```
+
+```{r, echo = FALSE, include = FALSE}
+# Change identifiers to your system and file naming. 
+user <- "F:"
+directory <- "/Projects"
+project <- "/CryoHoles/Studies"
+study <- "/Soils-Nutrient-Limitation-Growth_Solon-et-al"
+
+sub.directory.2 <- "/analyses"
+sub.directory.2.1 <- "/growth"
+sub.directory.2.1.1 <- "/input"
+sub.directory.2.1.2 <- "/response_ratios"
+sub.directory.2.1.2.1 <- "/ratios"
+sub.directory.2.1.2.2 <- "/plots"
+
+```
+
+### Set pathways and create directories  
+
+```{r set paths for pipeline}
+# First define the project and project directories. 
+# Create pathway for pipeline
+###################################################
+path.fp <- paste0(user, directory, project, study)
+if (!dir.exists(path.fp)) dir.create(path.fp)
+
+```
+
+```{r set paths for analyses}
+###################################################
+sub.directory.2.fp <- paste0(path.fp, sub.directory.2)
+if (!dir.exists(sub.directory.2.fp)) dir.create(sub.directory.2.fp)
+
+# Create sub-directory  growth
+###################################################
+sub.directory.2.1.fp <- paste0(sub.directory.2.fp, sub.directory.2.1)
+if (!dir.exists(sub.directory.2.1.fp)) dir.create(sub.directory.2.1.fp)
+
+# Create sub-directory  input
+###################################################
+sub.directory.2.1.1.fp <- paste0(sub.directory.2.1.fp, sub.directory.2.1.1)
+if (!dir.exists(sub.directory.2.1.1.fp)) dir.create(sub.directory.2.1.1.fp)
+
+# Create sub-directory  response ratios
+###################################################
+sub.directory.2.1.2.fp <- paste0(sub.directory.2.1.fp, sub.directory.2.1.2)
+if (!dir.exists(sub.directory.2.1.2.fp)) dir.create(sub.directory.2.1.2.fp)
+
+# Create sub-directory  ratios
+###################################################
+sub.directory.2.1.2.1.fp <- paste0(sub.directory.2.1.2.fp, sub.directory.2.1.2.1)
+if (!dir.exists(sub.directory.2.1.2.1.fp)) dir.create(sub.directory.2.1.2.1.fp)
+
+# Create sub-directory  plots 
+###################################################
+sub.directory.2.1.2.2.fp <- paste0(sub.directory.2.1.2.fp, sub.directory.2.1.2.2)
+if (!dir.exists(sub.directory.2.1.2.2.fp)) dir.create(sub.directory.2.1.2.2.fp)
+
+```
+
+### Load R packages  
+```{r Install and load packages, echo = FALSE, include = FALSE}
+# install.packages("knitr")
+# install.packages("")
+# install.packages("tidyverse")
+# install.packages("")
+# install.packages("")
+# install.packages("")
+# install.packages("")
+
+library(knitr); packageVersion("knitr")
+library(kableExtra); packageVersion("kableExtra")
+library(tidyverse); packageVersion("tidyverse")
+library(dplyr); packageVersion("dplyr")
+library(purrr); packageVersion("purrr")
+library(broom); packageVersion("broom")
+library(patchwork); packageVersion("patchwork")
+
+```
+
+* r version: `r getRversion()`
+* RStudio version: `r rstudioapi::versionInfo()$version`
+* r packages:  
+  knitr, `r packageVersion("knitr")` 
+  kableExtra, `r packageVersion("kableExtra")` 
+  tidyverse, `r packageVersion("tidyverse")` 
+  dplyr, `r packageVersion("dplyr")` 
+  purrr, `r packageVersion("purrr")` 
+  broom, `r packageVersion("broom")` 
+  patchwork, `r packageVersion("patchwork")` 
+   
+### Input Files
+Required input files:   
+  
+1.  Spreadsheets with percent autophototrophic surface cover for each sample from each basin.  From R markdown file: 
+MDV-nutrient-limitation-soils-microscope-counts.Rmd  
+
+```{r input}
+# Count Files
+countFile.1.fp <- paste0(sub.directory.2.1.1.fp, "/BonneyBasin_counts_percent.csv") 
+countFile.2.fp <- paste0(sub.directory.2.1.1.fp, "/HoareBasin_counts_percent.csv") 
+countFile.3.fp <- paste0(sub.directory.2.1.1.fp, "/FryxellBasin_counts_percent.csv") 
+
+#input data
+df.b <- read.csv(countFile.1.fp, header = T)
+df.h <- read.csv(countFile.2.fp, header = T)
+df.f <- read.csv(countFile.3.fp, header = T)
+
+# Remove rows with sampleID BNM_11. This plate was overwatered at the beginning of the experiment and thus subjected to a different condition that none of the other samples incurred.
+df.b.1 <- df.b %>% filter(SampleID != "BNM_11")
+
+```
+
+```{r define objects}
+# Define custom treatment colors by location:
+custom_treatment_colors_list <- list(
+  Bonney  = c("N" = "tan",    "P" = "#01665E", "NP" = "#01665E", "CTRL" = "tan"),
+  Hoare   = c("N" = "#01665E", "P" = "tan",    "NP" = "#01665E", "CTRL" = "tan"),
+  Fryxell = c("N" = "#01665E",    "P" = "#01665E", "NP" = "#01665E", "CTRL" = "tan")
+)
+
+# Map shorthand dataset names to location names
+locations <- c(b.1 = "Bonney", h = "Hoare", f = "Fryxell")
+
+```
+
+## Response Ratios by week  
+### Calculations  
+```{r calculations RRs - weekly}
+# Initialize an empty list to store results
+LRR_weekly <- list()
+models_weekly <- list()
+
+for (ds in c("b.1", "h", "f")) {
+  location <- locations[ds]
+  cat("\n### Processing", location, "###\n")
+
+  df <- get(paste0("df.", ds)) %>%
+    mutate(primary_cover = as.numeric(primary_cover)) %>%
+    drop_na(primary_cover) %>%
+    mutate(primary_cover_ln = ifelse(primary_cover > 0, log(primary_cover), 0),
+           factor1 = as.factor(N),
+           factor2 = as.factor(P))
+
+  base1 <- levels(df$factor1)[1]
+  base2 <- levels(df$factor2)[1]
+  unique_days <- sort(unique(df$days))
+
+  # Initialize list containers
+  LRR_weekly[[location]] <- list()
+  models_weekly[[location]] <- list()
+
+  for (current_day in unique_days) {
+    cat("Processing day:", current_day, "\n")
+
+    processed_df <- df %>% filter(days == current_day)
+
+    ctrl_ln <- processed_df %>%
+      filter(factor1 == base1, factor2 == base2) %>%
+      summarise(ctrl_ln = mean(primary_cover_ln, na.rm = TRUE)) %>%
+      pull(ctrl_ln)
+
+    processed_df <- processed_df %>%
+      mutate(LRR = primary_cover_ln - ctrl_ln,
+             treatment_label = case_when(
+               factor1 == "TRUE" & factor2 == "TRUE" ~ "NP",
+               factor1 == "TRUE" & factor2 != "TRUE" ~ "N",
+               factor1 != "TRUE" & factor2 == "TRUE" ~ "P",
+               TRUE ~ "CTRL"
+             ))
+
+    LRR_weekly[[location]][[as.character(current_day)]] <- processed_df
+
+    wts <- processed_df %>%
+      group_by(factor1, factor2) %>%
+      summarise(var_ln = var(primary_cover_ln, na.rm = TRUE),
+                n = n(),
+                w = ifelse(is.na(var_ln) | var_ln == 0, 1, 1 / (var_ln / n)),
+                .groups = "drop")
+
+    m_wgt <- processed_df %>%
+      left_join(wts, by = c("factor1", "factor2")) %>%
+      lm(LRR ~ factor1 * factor2, data = ., weights = w)
+
+    model_summary <- summary(m_wgt)
+    print(model_summary)
+
+    models_weekly[[location]][[as.character(current_day)]] <- m_wgt
+
+    model_out_file <- file.path(sub.directory.2.1.2.1.fp,
+                                paste0(location, "_", current_day, "_model_wls.txt"))
+    capture.output(model_summary, file = model_out_file)
+  }
+}
+
+```
+
+### Summary  
+```{r summary RRs - weekly}
+# Initialize an empty list to store results
+summary_results_weekly <- list()
+
+for (location in names(LRR_weekly)) {
+  summary_results_weekly[[location]] <- list()
+  
+  for (current_day in names(LRR_weekly[[location]])) {
+    processed_df <- LRR_weekly[[location]][[current_day]]
+
+    ctrl_ln <- processed_df %>%
+      filter(treatment_label == "CTRL") %>%
+      summarise(ctrl_ln = mean(primary_cover_ln, na.rm = TRUE)) %>%
+      pull(ctrl_ln)
+
+    group_summary <- processed_df %>%
+      group_by(factor1, factor2, treatment_label) %>%
+      summarise(mean_LRR = mean(LRR, na.rm = TRUE),
+                sd_LRR = sd(LRR, na.rm = TRUE),
+                n = n(),
+                se_LRR = sd_LRR / sqrt(n), # standard error of the mean
+                ci_low_LRR = mean_LRR - 1.96 * se_LRR, # lower 95% confidence interval
+                ci_high_LRR = mean_LRR + 1.96 * se_LRR, # upper 95% confidence interval
+                .groups = "drop") %>%
+      mutate(fold_change = exp(mean_LRR),
+             se_fold = exp(mean_LRR) * se_LRR,
+             raw_mean = exp(ctrl_ln) * fold_change,
+             se_raw = exp(ctrl_ln) * se_fold,
+             pct_change = (fold_change - 1) * 100,
+             se_pct = se_fold * 100)
+
+    table_df <- group_summary %>%
+      select(treatment_label, n, mean_LRR, se_LRR, ci_high_LRR, ci_low_LRR, raw_mean, se_raw,
+             fold_change, se_fold, pct_change, se_pct) %>%
+      arrange(factor(treatment_label, levels = c("CTRL", "N", "P", "NP")))
+
+    # Store result in the list for later use
+    summary_results_weekly[[location]][[current_day]] <- table_df
+
+    # Print formatted table
+    table_kable <- table_df %>%
+      kable(format = "html", digits = 3,
+            col.names = c("Treatment", "Sample Size",
+                          "Mean LRR", "SE (LRR)", "upper 95%CI (LRR)", "lower 95%CI (LRR)",
+                          "Back-transformed", "SE (Back)",
+                          "Fold-Change", "SE (Fold)",
+                          "Percent Change", "SE (Percent)")) %>%
+      kable_styling(bootstrap_options = c("striped", "hover"))
+
+    print(table_kable)
+
+    # Save to CSV
+    table_out_file <- file.path(sub.directory.2.1.2.1.fp,
+                                paste0(location, "_weekly_", current_day, "_log_response_ratios.csv"))
+    write.csv(table_df, file = table_out_file, row.names = FALSE)
+  }
+}
+```
+
+### Plots - Log Scale  
+```{r plot RRs log - weekly}
+# Initialize an empty list to store plots
+forest_plots_weekly <- list()
+
+for (location in names(summary_results_weekly)) {
+  forest_plots_weekly[[location]] <- list()
+  
+  for (current_day in names(summary_results_weekly[[location]])) {
+    # Retrieve stored summary results
+    group_summary <- summary_results_weekly[[location]][[current_day]]
+
+    # Get N and P values; assume there is exactly one row for each treatment (adjust if necessary)
+    N_vals <- group_summary %>% filter(treatment_label == "N")
+    P_vals <- group_summary %>% filter(treatment_label == "P")
+
+    # Calculate interaction mean and propagate uncertainty
+    interaction_mean <- N_vals$mean_LRR + P_vals$mean_LRR
+    interaction_se   <- sqrt(N_vals$se_LRR^2 + P_vals$se_LRR^2)
+    interaction_low  <- interaction_mean - 1.96 * interaction_se
+    interaction_high <- interaction_mean + 1.96 * interaction_se
+
+    # Generate the plot
+    p1 <- ggplot(group_summary, aes(x = mean_LRR, 
+                                    y = factor(treatment_label, levels = c("CTRL", "N", "P", "NP")), 
+                                    fill = treatment_label)) +
+      geom_point(size = 6, shape = 21, color = "black") +
+      geom_errorbarh(aes(xmin = ci_low_LRR, xmax = ci_high_LRR), height = 0.2) +
+      geom_vline(xintercept = 0, linewidth = 1, linetype = "dashed", color = "black") +
+      geom_vline(xintercept = interaction_mean, linetype = "dotdash", color = "gray50") +
+      annotate("rect",
+               xmin = interaction_low,
+               xmax = interaction_high,
+               ymin = -Inf, ymax = Inf,
+               alpha = 0.1, fill = "gray50") +
+      scale_x_continuous(limits = c(-1.25, 5.1), breaks = -1:5) +
+      scale_y_discrete(expand = c(0.3, 0)) +
+      scale_fill_manual(values = custom_treatment_colors_list[[location]]) +
+      labs(title = paste(location, "Day", current_day),
+           x = "Response Ratio (log)", y = "") +
+      theme_bw() +
+      theme(
+        plot.title = element_text(size = 25),
+        axis.title.x = element_text(size = 20),
+        axis.text.x = element_text(size = 22),
+        axis.text.y = element_text(size = 18),
+        axis.ticks.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank()
+      ) +
+      guides(fill = "none")
+
+    print(p1)
+
+    # Store plot in list for later reference
+    forest_plots_weekly[[location]][[current_day]] <- p1
+
+    # Save plots in multiple formats
+    ggsave(file.path(sub.directory.2.1.2.2.fp, paste0(location, "_", current_day, "_forest_plot_LOG.jpeg")),
+           plot = p1, device = "jpeg", width = 7, height = 7)
+    ggsave(file.path(sub.directory.2.1.2.2.fp, paste0(location, "_", current_day, "_forest_plot_LOG.pdf")),
+           plot = p1, device = "pdf", width = 7, height = 7)
+    ggsave(file.path(sub.directory.2.1.2.2.fp, paste0(location, "_", current_day, "_forest_plot_LOG.svg")),
+           plot = p1, device = "svg", width = 7, height = 7)
+  }
+}
+
+```
+
+###Plots - Back Transformation  
+```{r plot RRs back transformed - weekly}
+#initialize list
+backtransform_plots_weekly <- list()
+
+for (location in names(summary_results_weekly)) {
+  backtransform_plots_weekly[[location]] <- list()
+  
+  for (current_day in names(summary_results_weekly[[location]])) {
+    # Retrieve stored summary results
+    table_df <- summary_results_weekly[[location]][[current_day]]
+
+    # Ensure `CTRL` group's `raw_mean` is dynamically retrieved
+    ctrl_raw_mean <- table_df %>%
+      filter(treatment_label == "CTRL") %>%
+      pull(raw_mean)
+
+    # Compute confidence intervals while handling possible NA values
+    table_df <- table_df %>%
+      mutate(ci_low_raw = ifelse(is.na(se_raw), NA, raw_mean - qnorm(0.975) * se_raw),
+             ci_high_raw = ifelse(is.na(se_raw), NA, raw_mean + qnorm(0.975) * se_raw))
+
+    # Generate the plot
+    p2 <- ggplot(table_df, aes(x = raw_mean, y = factor(treatment_label, 
+                        levels = c("CTRL", "N", "P", "NP")), color = treatment_label)) +
+      geom_point(size = 4) +
+      geom_errorbarh(aes(xmin = ci_low_raw, xmax = ci_high_raw), height = 0.2, na.rm = TRUE) +  # Avoid plotting NA values
+      geom_vline(xintercept = ctrl_raw_mean, linetype = "dashed", color = "gray70") +  # Dynamically set CTRL reference line
+      scale_x_continuous(limits = c(-0.1, 105), breaks = seq(0, 100, 20)) +
+      scale_color_manual(values = custom_treatment_colors_list[[location]]) +
+      labs(title = paste(location, "Day", current_day),
+           x = "Surface Cover (%)", y = "") +
+      theme_bw() +
+      theme(
+        plot.title = element_text(size = 25),
+        axis.title.x = element_text(size = 20),
+        axis.text.x = element_text(size = 20),
+        axis.text.y = element_text(size = 18),
+        axis.ticks.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank()
+      ) +
+      guides(color = "none")
+
+    print(p2)
+
+    # Store plot in list for later reference
+    backtransform_plots_weekly[[location]][[current_day]] <- p2
+
+    # Save plots in multiple formats
+    ggsave(file.path(sub.directory.2.1.2.2.fp, paste0(location, "_", current_day, "_forest_plot_back_transformed.jpeg")),
+           plot = p2, device = "jpeg", width = 7, height = 5)
+    ggsave(file.path(sub.directory.2.1.2.2.fp, paste0(location, "_", current_day, "_forest_plot_back_transformed.pdf")),
+           plot = p2, device = "pdf", width = 7, height = 5)
+    ggsave(file.path(sub.directory.2.1.2.2.fp, paste0(location, "_", current_day, "_forest_plot_back_transformed.svg")),
+           plot = p2, device = "svg", width = 7, height = 5)
+  }
+}
+```
+
+## Maximum Response per Treatment
+### Calculations  
+```{r calculations RRs - max}
+# Initialize list containers before processing
+LRR_peak <- list()
+models_peak <- list()
+
+for (ds in c("b.1", "h", "f")) {
+  location <- locations[ds]
+  cat("\n### Processing", location, "###\n")
+
+  df <- get(paste0("df.", ds)) %>%
+    mutate(primary_cover = as.numeric(primary_cover)) %>%
+    drop_na(primary_cover) %>%
+    mutate(primary_cover_ln = ifelse(primary_cover > 0, log(primary_cover), 0),
+           factor1 = as.factor(N),
+           factor2 = as.factor(P))
+
+  base1 <- levels(df$factor1)[1]
+  base2 <- levels(df$factor2)[1]
+
+  # Initialize location-specific sublists
+  LRR_peak[[location]] <- list()
+  models_peak[[location]] <- list()
+
+  # Identify the peak LRR week per treatment in this location
+  peak_days <- summary_results_weekly[[location]] %>%
+    bind_rows(.id = "current_day") %>%
+    filter(treatment_label %in% c("N", "P", "NP")) %>%
+    group_by(treatment_label) %>%
+    slice_max(mean_LRR, with_ties = FALSE) %>%
+    select(treatment_label, current_day) %>%
+    ungroup()
+
+  # Get a single peak week to extract all primary_cover_ln values from treatments
+  peak_week <- unique(peak_days$current_day)
+
+  # Extract all relevant data from that peak week
+  processed_df <- df %>% filter(days %in% as.numeric(peak_week))
+
+  ctrl_ln <- processed_df %>%
+    filter(factor1 == base1, factor2 == base2) %>%
+    summarise(ctrl_ln = mean(primary_cover_ln, na.rm = TRUE)) %>%
+    pull(ctrl_ln)
+
+  processed_df <- processed_df %>%
+    mutate(LRR = primary_cover_ln - ctrl_ln,
+           treatment_label = case_when(
+             factor1 == "TRUE" & factor2 == "TRUE" ~ "NP",
+             factor1 == "TRUE" & factor2 != "TRUE" ~ "N",
+             factor1 != "TRUE" & factor2 == "TRUE" ~ "P",
+             TRUE ~ "CTRL"
+           ))
+
+  # Store peak week data
+  LRR_peak[[location]] <- processed_df
+
+  # Compute weights for regression
+  wts <- processed_df %>%
+    group_by(factor1, factor2) %>%
+    summarise(var_ln = var(primary_cover_ln, na.rm = TRUE),
+              n = n(),
+              w = ifelse(is.na(var_ln) | var_ln == 0, 1, 1 / (var_ln / n)),
+              .groups = "drop")
+
+  # Perform weighted regression on **all treatments from peak week**
+  m_wgt <- processed_df %>%
+    left_join(wts, by = c("factor1", "factor2")) %>%
+    lm(LRR ~ factor1 * factor2, data = ., weights = w)
+
+  model_summary <- summary(m_wgt)
+  print(model_summary)
+
+  # Store final model (one per location)
+  models_peak[[location]] <- m_wgt
+
+  model_out_file <- file.path(sub.directory.2.1.2.1.fp,
+                              paste0(location, "_peak_model_wls.txt"))
+  capture.output(model_summary, file = model_out_file)
+}
+
+```
+
+### Summary
+```{r summary RRs - max}
+# Initialize an empty list to store peak data
+peak_values_list <- list()
+
+for (location in names(summary_results_weekly)) {
+  # Combine all weeks' data into one data frame for this location
+  combined_data <- summary_results_weekly[[location]] %>%
+    bind_rows(.id = "current_day")
+
+  # Identify the week with the highest LRR for N, P, and NP across all weeks
+  max_weeks <- combined_data %>%
+    filter(treatment_label %in% c("N", "P", "NP")) %>%
+    group_by(treatment_label) %>%
+    slice_max(mean_LRR, with_ties = FALSE) %>%
+    ungroup()
+
+  # Select only the max LRR values for each treatment
+  selected_data <- max_weeks %>%
+    select(treatment_label, n, mean_LRR, se_LRR, ci_low_LRR, ci_high_LRR)
+
+  # Add CTRL as a reference point at 0
+  ctrl_row <- tibble(treatment_label = "CTRL", mean_LRR = 0, se_LRR = 0, ci_low_LRR = 0, ci_high_LRR = 0)
+  selected_data <- bind_rows(ctrl_row, selected_data)
+
+  # Get N and P values for interaction calculations
+  N_vals <- selected_data %>% filter(treatment_label == "N")
+  P_vals <- selected_data %>% filter(treatment_label == "P")
+
+  # Calculate interaction mean and propagate uncertainty
+  interaction_mean <- N_vals$mean_LRR + P_vals$mean_LRR
+  interaction_se   <- sqrt(((N_vals$se_LRR^2) / N_vals$n) + ((P_vals$se_LRR^2) / P_vals$n)) #standard error of difference between means
+  interaction_low  <- interaction_mean - 1.96 * interaction_se # lower 95% confidence interval
+  interaction_high <- interaction_mean + 1.96 * interaction_se # upper 95% confidence interval
+
+  # Add interaction row and rename it as "Additive"
+  interaction_row <- tibble(
+    treatment_label = "Additive",
+    mean_LRR = interaction_mean,
+    se_LRR = interaction_se,
+    ci_low_LRR = interaction_low,
+    ci_high_LRR = interaction_high
+  )
+  selected_data <- bind_rows(selected_data, interaction_row)
+
+  # Arrange rows in the desired order
+  selected_data <- selected_data %>%
+    mutate(treatment_label = factor(treatment_label, levels = c("CTRL", "N", "P", "NP", "Additive"))) %>%
+    arrange(treatment_label)
+
+  # Store processed data for later reference
+  peak_values_list[[location]] <- selected_data
+}
+
+# Combine all locations into one data frame
+peak_values_combined <- bind_rows(peak_values_list, .id = "location")
+
+# Print table using kableExtra
+peak_values_combined %>%
+  kable(format = "html") %>%
+  kable_styling(full_width = FALSE)
+
+# Save as CSV
+write.csv(peak_values_combined, file.path(sub.directory.2.1.2.fp, "MDV-nutrient-limitation-soils_LRR-forest-plot-MAX-ratios.csv"), row.names = FALSE)
+
+```
+
+### Plots - Log Scale  
+```{r plot RRs log - max}
+# Initialize an empty list to store plots
+forest_plots_max_weekly <- list()
+
+for (location in names(summary_results_weekly)) {
+  # Combine all weeks' data into one data frame for this location
+  combined_data <- summary_results_weekly[[location]] %>%
+    bind_rows(.id = "current_day")
+
+  # Identify the week with the highest LRR for N, P, and NP across all weeks
+  max_weeks <- combined_data %>%
+    filter(treatment_label %in% c("N", "P", "NP")) %>%
+    group_by(treatment_label) %>%
+    slice_max(mean_LRR, with_ties = FALSE) %>%
+    ungroup()
+
+  # Select only the max LRR values for each treatment
+  selected_data <- max_weeks %>%
+    select(treatment_label, n, mean_LRR, se_LRR, ci_low_LRR, ci_high_LRR)
+
+  # Add CTRL as a reference point at 0
+  ctrl_row <- tibble(treatment_label = "CTRL", mean_LRR = 0, se_LRR = 0, ci_low_LRR = 0, ci_high_LRR = 0)
+  selected_data <- bind_rows(ctrl_row, selected_data)
+
+  # Get N and P values for interaction calculations
+  N_vals <- selected_data %>% filter(treatment_label == "N")
+  P_vals <- selected_data %>% filter(treatment_label == "P")
+
+  # Calculate interaction mean and propagate uncertainty
+  interaction_mean <- N_vals$mean_LRR + P_vals$mean_LRR
+  interaction_se   <- sqrt(((N_vals$se_LRR^2)/N_vals$n) + ((P_vals$se_LRR^2)/P_vals$n))
+  interaction_low  <- interaction_mean - 1.96 * interaction_se
+  interaction_high <- interaction_mean + 1.96 * interaction_se
+
+  # Generate the plot
+  p1 <- ggplot(selected_data, aes(x = mean_LRR, 
+                                  y = factor(treatment_label, levels = c("CTRL", "N", "P", "NP")), 
+                                  fill = treatment_label)) +
+    geom_point(size = 4, shape = 21, color = "black", alpha = 0.55) +
+    geom_errorbarh(aes(xmin = ci_low_LRR, xmax = ci_high_LRR), height = 0.2) +
+    geom_vline(xintercept = 0, linewidth = 1, linetype = "dashed", color = "black") +  # Fixed CTRL reference at 0
+    geom_vline(xintercept = interaction_mean, linetype = "dotdash", color = "gray50") +
+    annotate("rect",
+             xmin = interaction_low,
+             xmax = interaction_high,
+             ymin = -Inf, ymax = Inf,
+             alpha = 0.1, fill = "gray50") +
+    scale_x_continuous(limits = c(-1.25, 5.1), breaks = -1:5) +
+    scale_y_discrete(expand = c(0.3, 0)) +
+    scale_fill_manual(values = custom_treatment_colors_list[[location]]) +
+    labs(title = paste(location, "Peak LRR Values"),
+         x = "Response Ratio (log)", y = "") +
+    theme_bw() +
+    theme(
+      plot.title = element_text(size = 25),
+      axis.title.x = element_text(size = 20),
+      axis.text.x = element_text(size = 22),
+      axis.text.y = element_text(size = 18),
+      axis.ticks.y = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.y = element_blank()
+    ) +
+    guides(fill = "none")
+
+  print(p1)
+
+  # Store plot in list for later reference
+  forest_plots_max_weekly[[location]] <- p1
+
+  # Save plots in multiple formats
+  ggsave(file.path(sub.directory.2.1.2.2.fp, paste0(location, "_forest_plot_peak_LRR.jpeg")),
+         plot = p1, device = "jpeg", width = 7, height = 7)
+  ggsave(file.path(sub.directory.2.1.2.2.fp, paste0(location, "_forest_plot_peak_LRR.pdf")),
+         plot = p1, device = "pdf", width = 7, height = 7)
+  ggsave(file.path(sub.directory.2.1.2.2.fp, paste0(location, "_forest_plot_peak_LRR.svg")),
+         plot = p1, device = "svg", width = 7, height = 7)
+}
+```
+
+### Plots - Back-Transformation  
+```{r RRs plots back transformed - max}
+# Initialize an empty list to store plots
+backtrans_plots_max_weekly <- list()
+
+for (location in names(summary_results_weekly)) {
+  # Combine all weeks' data into one data frame for this location
+  combined_data <- summary_results_weekly[[location]] %>%
+    bind_rows(.id = "current_day")
+
+  # Identify the week with the highest raw_mean for N, P, and NP across all weeks
+  max_weeks <- combined_data %>%
+    filter(treatment_label %in% c("N", "P", "NP")) %>%
+    group_by(treatment_label) %>%
+    slice_max(raw_mean, with_ties = FALSE) %>%
+    ungroup()
+
+  # Select only the max raw_mean values for each treatment
+  selected_data <- max_weeks %>%
+    select(treatment_label, raw_mean, se_raw) %>%
+    mutate(ci_low_raw = raw_mean - qnorm(0.975) * se_raw,
+           ci_high_raw = raw_mean + qnorm(0.975) * se_raw)
+
+  # Ensure `CTRL` group's `raw_mean` is dynamically retrieved
+  ctrl_raw_mean <- combined_data %>%
+    filter(treatment_label == "CTRL") %>%
+    summarise(ctrl_raw_mean = mean(raw_mean, na.rm = TRUE)) %>%
+    pull(ctrl_raw_mean)
+
+  # Add CTRL as a reference point at its computed mean
+  ctrl_row <- tibble(treatment_label = "CTRL", raw_mean = ctrl_raw_mean, se_raw = 0, 
+                     ci_low_raw = ctrl_raw_mean, ci_high_raw = ctrl_raw_mean)
+  selected_data <- bind_rows(ctrl_row, selected_data)
+
+  # Generate the plot
+  p2 <- ggplot(selected_data, aes(x = raw_mean, y = factor(treatment_label, 
+                      levels = c("CTRL", "N", "P", "NP")), color = treatment_label)) +
+    geom_point(size = 4) +
+    geom_errorbarh(aes(xmin = ci_low_raw, xmax = ci_high_raw), height = 0.2, na.rm = TRUE) +  # Avoid plotting NA values
+    geom_vline(xintercept = ctrl_raw_mean, linetype = "dashed", color = "gray70") +  # Dynamically set CTRL reference line
+    scale_x_continuous(limits = c(-0.1, 105), breaks = seq(0, 100, 20)) +
+    scale_color_manual(values = custom_treatment_colors_list[[location]]) +
+    labs(title = paste(location, "Peak Back-Transformed Surface Cover"),
+         x = "Surface Cover (%)", y = "") +
+    theme_bw() +
+    theme(
+      plot.title = element_text(size = 25),
+      axis.title.x = element_text(size = 20),
+      axis.text.x = element_text(size = 20),
+      axis.text.y = element_text(size = 18),
+      axis.ticks.y = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.y = element_blank()
+    ) +
+    guides(color = "none")
+
+  print(p2)
+
+  # Store plot in list for later reference
+  backtrans_plots_max_weekly[[location]] <- p2
+
+  # Save plots in multiple formats
+  ggsave(file.path(sub.directory.2.1.2.2.fp, paste0(location, "_forest_plot_peak_back_transformed.jpeg")),
+         plot = p2, device = "jpeg", width = 7, height = 7)
+  ggsave(file.path(sub.directory.2.1.2.2.fp, paste0(location, "_forest_plot_peak_back_transformed.pdf")),
+         plot = p2, device = "pdf", width = 7, height = 7)
+  ggsave(file.path(sub.directory.2.1.2.2.fp, paste0(location, "_forest_plot_peak_back_transformed.svg")),
+         plot = p2, device = "svg", width = 7, height = 7)
+}
+
+```
+
+```{r combine plots}
+# Load necessary library
+library(patchwork)
+
+# Modify the plots
+forest_plots_modified <- forest_plots_modified <- list(
+  "Bonney"  = forest_plots_max_weekly[["Bonney"]] + labs(title = "Bonney Basin") + 
+              theme(plot.title = element_text(size = 18), axis.title.x = element_blank(), axis.text.x = element_blank(), axis.text.y = element_text(size = 14), ),
+  "Hoare"   = forest_plots_max_weekly[["Hoare"]] + labs(title = "Hoare Basin") + 
+              theme(plot.title = element_text(size = 18), axis.title.x = element_blank(), axis.text.x = element_blank(), axis.text.y = element_text(size = 14), ),
+  "Fryxell" = forest_plots_max_weekly[["Fryxell"]] + labs(title = "Fryxell Basin") + 
+              theme(plot.title = element_text(size = 18), axis.text.y = element_text(size = 14), axis.text.x = element_text(size = 16), axis.title.x = element_text(size = 18))
+)
+
+# Create a custom legend using ggplot
+legend_plot <- ggplot() +
+  geom_point(aes(x = 2.08, y = 1), shape = 21, size = 5, fill = "#01665E", color = "black", alpha = 0.55) +
+  geom_point(aes(x = 2.08, y = -0.05), shape = 21, size = 5, fill = "tan", color = "black", alpha = 0.55) +
+  annotate("text", x = 2.11, y = 1, label = "Significant effect", hjust = 0, size = 4.5) +
+  annotate("text", x = 2.11, y = -0.05, label = "Non-significant effect", hjust = 0, size = 4.5) +
+  xlim(0.8, 2.5) + ylim(-0.5, 1.5) +
+  theme_void()
+
+#combine all plots
+combined_plot <- (legend_plot / forest_plots_modified[["Bonney"]] / forest_plots_modified[["Hoare"]] / forest_plots_modified[["Fryxell"]]) + 
+  plot_layout(heights = c(0.7, 3, 3, 3))  # Adjust the last item's height
+
+# Print the combined plot
+print(combined_plot)
+
+# Save combined plot in multiple formats
+ggsave(file.path(sub.directory.2.1.2.fp, "MDV-nutrient-limitation-soils_LRR-forest-plot-MAX-combine.jpeg"),
+       plot = combined_plot, device = "jpeg", width = 8.5, height = 8.5)
+
+ggsave(file.path(sub.directory.2.1.2.fp, "MDV-nutrient-limitation-soils_LRR-forest-plot-MAX-combine.pdf"),
+       plot = combined_plot, device = "pdf", width = 7, height = 5)
+
+ggsave(file.path(sub.directory.2.1.2.fp, "MDV-nutrient-limitation-soils_LRR-forest-plot-MAX-combine.svg"),
+       plot = combined_plot, device = "svg", width = 7, height = 7)
+
+```
+
+## End of Script  

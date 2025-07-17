@@ -1,0 +1,279 @@
+---
+title: "McMurdo Dry Valleys Nutrient Limitation"
+subtitle: "  \n Processing of Microscopic Count Data"
+author: "Adam J. Solon"
+date: "`r Sys.Date()`"
+#output: html_document
+output: 
+  pdf_document:
+    toc: TRUE
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+    keep_md: true
+fontsize: 12pt
+#editor_options: 
+#  chunk_output_type: console
+---
+  
+# Script Summary  
+This script processes a time series of surface growth of sediments collected from mountain slopes in Bonney, Hoare, and Fryxell basins in Taylor Valley  of the McMurdo Dry Valleys, Antarctica. Once a week a dissecting microscope at 45x magnification was used to identify the growth of photoautotrophs on the surface of sediments treated with nitrogen, phosphorus, nitrogen & phosphorus, and water-only controls.
+
+### Steps of this pipeline:  
+1.  Create and organize directories
+2.  Load R packages
+3.  Input files
+4.  Format & Calculate Cover
+    a. variables as factor or numeric values    
+    b. remove rows with NAs. 
+    c. generate boolean variables for N or P  
+    d. calculate percent cover 
+5.  Save files  
+
+```{r echo = FALSE, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+
+```
+
+```{r, echo = FALSE, include = FALSE}
+# Change identifiers to your system and file naming. 
+user <- "F:"
+directory <- "/Projects"
+project <- "/CryoHoles/Studies"
+study <- "/Soils-Nutrient-Limitation-Growth_Solon-et-al"
+
+sub.directory.1 <- "/data"
+sub.directory.1.1 <- "/processed_files"
+sub.directory.1.1.1 <- "/microscope_counts"
+
+sub.directory.2 <- "/analyses"
+sub.directory.2.1 <- "/growth"
+sub.directory.2.1.1 <- "/input"
+
+```
+
+### Set pathways and create directories  
+
+```{r set paths for pipeline}
+# First define the project and project directories. 
+# Create pathway for pipeline
+###################################################
+path.fp <- paste0(user, directory, project, study)
+if (!dir.exists(path.fp)) dir.create(path.fp)
+
+```
+
+```{r set paths for processed files}
+# Create sub-directory  data
+###################################################
+sub.directory.1.fp <- paste0(path.fp, sub.directory.1)
+if (!dir.exists(sub.directory.1.fp)) dir.create(sub.directory.1.fp)
+
+# Create sub-directory  processed files
+###################################################
+sub.directory.1.1.fp <- paste0(sub.directory.1.fp, sub.directory.1.1)
+if (!dir.exists(sub.directory.1.1.fp)) dir.create(sub.directory.1.1.fp)
+
+# Create sub-directory  microscope counts
+###################################################
+sub.directory.1.1.1.fp <- paste0(sub.directory.1.1.fp, sub.directory.1.1.1)
+if (!dir.exists(sub.directory.1.1.1.fp)) dir.create(sub.directory.1.1.1.fp)
+
+```
+
+```{r set paths for analyses}
+###################################################
+sub.directory.2.fp <- paste0(path.fp, sub.directory.2)
+if (!dir.exists(sub.directory.2.fp)) dir.create(sub.directory.2.fp)
+
+# Create sub-directory  growth
+###################################################
+sub.directory.2.1.fp <- paste0(sub.directory.2.fp, sub.directory.2.1)
+if (!dir.exists(sub.directory.2.1.fp)) dir.create(sub.directory.2.1.fp)
+
+# Create sub-directory  input
+###################################################
+sub.directory.2.1.1.fp <- paste0(sub.directory.2.1.fp, sub.directory.2.1.1)
+if (!dir.exists(sub.directory.2.1.1.fp)) dir.create(sub.directory.2.1.1.fp)
+
+
+```
+
+### Load R packages  
+```{r Install and load packages, echo = FALSE, include = FALSE}
+
+# install.packages("tidyverse")
+# install.packages("knitr")
+
+library(knitr); packageVersion("knitr")
+library(tidyverse); packageVersion("tidyverse")
+library(dplyr)
+
+```
+
+* r version: `r getRversion()`
+* RStudio version: `r rstudioapi::versionInfo()$version`
+* r packages:  
+  tidyverse, `r packageVersion("tidyverse")` 
+  knitr, `r packageVersion("knitr")`  
+
+### Input Files
+Required input files:   
+  
+1.  Spreadsheets with weekly count data for each sample from each basin.  
+```{r input data files}
+# Count Files
+countFile.1.fp <- paste0(sub.directory.1.1.1.fp, "/MDV-soils-nutrient-limitation-microscope-counts-Bonney-basin.csv") 
+countFile.2.fp <- paste0(sub.directory.1.1.1.fp, "/MDV-soils-nutrient-limitation-microscope-counts-Hoare-basin.csv") 
+countFile.3.fp <- paste0(sub.directory.1.1.1.fp, "/MDV-soils-nutrient-limitation-microscope-counts-Fryxell-basin.csv") 
+
+#input data
+df.b <- read.csv(countFile.1.fp, header = T)
+df.h <- read.csv(countFile.2.fp, header = T)
+df.f <- read.csv(countFile.3.fp, header = T)
+
+```
+
+#### Format & Calculate Percent Cover  
+ 
+1. Set column variables as factor or numeric values    
+2. Remove NAs. NAs are not zeros and indicate no counts were recorded for that sample in that week (i.e., the early weeks when spot checks with only field-of-view observations were conducted before growth was detected and the point-intercept methods was used to count surface cover. And also plate 3, Bonney Basin, which was lost during experiment)  
+3. Create boolean variables for N or P  
+4. Calculate counts for each category as a percentage of the total surface cover  
+
+```{r echo = FALSE, include = FALSE}
+#define function
+process_df <- function(df) {  
+  # Convert specified columns to factor  
+  df <- df %>% mutate(across(c(Year, Month, Date, basin, plate_number, SampleID, treatment, replicate, technique), as.factor))  
+  
+  # Convert specified columns to numeric  
+  df <- df %>% mutate(across(c(Week, green_sphere, green_dot, green_branching, brown_dot, green_rope, green_patch, yellow_patch,  
+                               green_filaments, fungi, moss, orange_sphere, num_counts), as.numeric))  
+  
+  # Add 'days' column based on 'week'  
+  df <- df %>% mutate(days = 1 + (Week - 1) * 7)  
+  
+  # Drop missing values  
+  df <- df %>% drop_na()  
+  
+  # Create boolean variables for each treatment  
+  df <- df %>% mutate(  
+    N = treatment %in% c("N", "NP"),  
+    P = treatment %in% c("P", "NP")  
+  )  
+  
+  # Reclassify boolean variables as factors  
+  df <- df %>% mutate(across(c(N, P), as.factor))  
+  
+  # Compute percent cover variables  
+  df <- df %>% mutate(  
+    total = rowSums(select(., green_sphere:orange_sphere), na.rm = TRUE),  
+    primary = rowSums(select(., green_sphere:moss, orange_sphere), na.rm = TRUE),  
+    total_cover = (total / num_counts) * 100,  
+    primary_cover = (primary / num_counts) * 100,  
+    primary_cover_2 = primary / num_counts,  
+    gs_cover = (green_sphere / num_counts) * 100,  
+    gd_cover = (green_dot / num_counts) * 100,  
+    gb_cover = (green_branching / num_counts) * 100,  
+    bd_cover = (brown_dot / num_counts) * 100,  
+    gr_cover = (green_rope / num_counts) * 100,  
+    gp_cover = (green_patch / num_counts) * 100,  
+    yp_cover = (yellow_patch / num_counts) * 100,  
+    gf_cover = (green_filaments / num_counts) * 100,  
+    fg_cover = (fungi / num_counts) * 100,  
+    ms_cover = (moss / num_counts) * 100,  
+    os_cover = (orange_sphere / num_counts) * 100  
+  )  
+  
+  # Ensure unique weeks are sorted properly  
+  unique_weeks <- sort(unique(df$Week), na.last = TRUE)  
+  
+  return(df)  
+}  
+
+# Apply the function to all dataframes and assign custom names  
+dfs <- list(df.b, df.h, df.f) %>% setNames(c("BonneyBasin", "HoareBasin", "FryxellBasin")) %>% map(process_df)
+
+```
+
+```{r formtat data 2}
+process_df_2 <- function(df) {  
+  # Convert specified columns to factor  
+  df <- df %>% mutate(across(c(Year, Month, Date, basin, plate_number, SampleID, treatment, replicate, technique), as.factor))  
+
+  # Convert specified columns to numeric  
+  df <- df %>% mutate(across(c(Week, green_sphere, green_dot, green_branching, brown_dot, green_rope, green_patch, yellow_patch,  
+                               green_filaments, fungi, moss, orange_sphere, num_counts), as.numeric))  
+
+  # Add 'days' column based on 'week'  
+  df <- df %>% mutate(days = 1 + (Week - 1) * 7)  
+
+  # Create boolean variables for each treatment  
+  df <- df %>% mutate(  
+    N = treatment %in% c("N", "NP"),  
+    P = treatment %in% c("P", "NP")  
+  )  
+
+  # Reclassify boolean variables as factors  
+  df <- df %>% mutate(across(c(N, P), as.factor))  
+
+  # Compute percent cover variables  
+  df <- df %>% mutate(  
+    total = rowSums(select(., green_sphere:orange_sphere), na.rm = TRUE),  
+    primary = rowSums(select(., green_sphere:moss, orange_sphere), na.rm = TRUE),  
+    total_cover = (total / num_counts) * 100,  
+    primary_cover = (primary / num_counts) * 100,  
+    primary_cover_2 = primary / num_counts,  
+    gs_cover = (green_sphere / num_counts) * 100,  
+    gd_cover = (green_dot / num_counts) * 100,  
+    gb_cover = (green_branching / num_counts) * 100,  
+    bd_cover = (brown_dot / num_counts) * 100,  
+    gr_cover = (green_rope / num_counts) * 100,  
+    gp_cover = (green_patch / num_counts) * 100,  
+    yp_cover = (yellow_patch / num_counts) * 100,  
+    gf_cover = (green_filaments / num_counts) * 100,  
+    fg_cover = (fungi / num_counts) * 100,  
+    ms_cover = (moss / num_counts) * 100,  
+    os_cover = (orange_sphere / num_counts) * 100  
+  )  
+
+  # Ensure unique weeks are sorted properly  
+  unique_weeks <- sort(unique(df$Week), na.last = TRUE)  
+
+  return(df)  
+}
+
+# Apply the function to all dataframes and assign custom names  
+dfs.2 <- list(df.b, df.h, df.f) %>% setNames(c("BonneyBasin", "HoareBasin", "FryxellBasin")) %>% map(process_df_2)
+
+```
+
+```{r format 3}
+#define function
+replace_na_cover <- function(df) {  
+  df <- df %>% mutate(across(ends_with("_cover") & !contains("primary_cover_2"), ~replace_na(.x, 0.5)))  
+  return(df)  
+}
+
+#apply function
+dfs.3 <- map(dfs.2, replace_na_cover)
+
+```
+
+### Save files
+```{r save files}
+# Save the processed dataframes
+walk2(dfs, names(dfs), ~ saveRDS(.x, paste0(sub.directory.2.1.1.fp, "/", .y, ".rds")))
+walk2(dfs, names(dfs), ~ write.csv(.x, file = paste0(sub.directory.2.1.1.fp, "/", .y, "_counts_percent.csv"), row.names = FALSE))
+
+# Save the processed dataframes
+walk2(dfs.3, names(dfs.3), ~ saveRDS(.x, paste0(sub.directory.2.1.1.fp, "/", .y, ".rds")))
+walk2(dfs.3, names(dfs.3), ~ write.csv(.x, file = paste0(sub.directory.2.1.1.fp, "/", .y, "_counts_percent_time_series.csv"), row.names = FALSE))
+
+```
+
+##End of Script 

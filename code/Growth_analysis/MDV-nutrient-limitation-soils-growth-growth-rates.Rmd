@@ -1,0 +1,1452 @@
+---
+title: "McMurdo Dry Valleys Nutrient Limitation"
+subtitle: "  \n Growth Curve Models"
+author: "Adam J. Solon"
+date: "`r Sys.Date()`"
+#output: html_document
+output: 
+  pdf_document:
+    toc: TRUE
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+    keep_md: true
+fontsize: 12pt
+#editor_options: 
+#  chunk_output_type: console
+---
+  
+# Script Summary  
+This code quantifies the response of the growth of primary producers from nutrient enrichment in sediments collected from three basins in Taylor Valley of the McMurdo Dry Valleys. The growth rates and carrying capacity of primary producers are determined using a logistic growth model and a repeated measures assessment is evaluated statistically with mixed-effect model.   
+The experiment involved soils from Taylor Valley in the McMurdo Dry Valleys (MDV) of Antarctica and were collected from mountain slopes in one of three lake basins: Bonney(interior), Hoare(intermediate), and Fryxell(coastal).  There are four treatments: CTRL (controls with H2O only), N (nitrogen + H2O only), P (phosphorus + H2O only), and NP (N and P combined + H2O). 
+
+
+### Steps of this pipeline:  
+1.  Create and organize directories
+2.  Load R packages
+3.  Input files
+4.  Format Files
+5.  Compute response ratios
+6.  Create plots 
+7.  Save files
+
+```{r echo = FALSE, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+
+```
+
+```{r, echo = FALSE, include = FALSE}
+# Change identifiers to your system and file naming. 
+user <- "F:"
+directory <- "/Projects"
+project <- "/CryoHoles/Studies"
+study <- "/Soils-Nutrient-Limitation-Growth_Solon-et-al"
+
+sub.directory.2 <- "/analyses"
+sub.directory.2.1 <- "/growth"
+sub.directory.2.1.1 <- "/input"
+
+sub.directory.2.1.2 <- "/growth_curves"
+
+sub.directory.2.1.2.1 <- "/models"
+sub.directory.2.1.2.1.1 <- "/Bonney"
+sub.directory.2.1.2.1.2 <- "/Hoare"
+sub.directory.2.1.2.1.3 <- "/Fryxell"
+
+sub.directory.2.1.2.2 <- "/plots"
+
+sub.directory.2.1.2.2.1 <- "/raw_data"
+sub.directory.2.1.2.2.1.1 <- "/Bonney"
+sub.directory.2.1.2.2.1.2 <- "/Hoare"
+sub.directory.2.1.2.2.1.3 <- "/Fryxell"
+
+sub.directory.2.1.2.2.2 <- "/easylinear"
+sub.directory.2.1.2.2.2.1 <- "/Bonney"
+sub.directory.2.1.2.2.2.2 <- "/Hoare"
+sub.directory.2.1.2.2.2.3 <- "/Fryxell"
+
+sub.directory.2.1.2.2.3 <- "/model_trends"
+sub.directory.2.1.2.2.3.1 <- "/Bonney"
+sub.directory.2.1.2.2.3.2 <- "/Hoare"
+sub.directory.2.1.2.2.3.3 <- "/Fryxell"
+
+```
+
+### Set pathways and create directories  
+
+```{r set paths for pipeline}
+# First define the project and project directories. 
+# Create pathway for pipeline
+###################################################
+path.fp <- paste0(user, directory, project, study)
+if (!dir.exists(path.fp)) dir.create(path.fp)
+
+```
+
+```{r set paths for analyses}
+###################################################
+sub.directory.2.fp <- paste0(path.fp, sub.directory.2)
+if (!dir.exists(sub.directory.2.fp)) dir.create(sub.directory.2.fp)
+
+# Create sub-directory  growth
+###################################################
+sub.directory.2.1.fp <- paste0(sub.directory.2.fp, sub.directory.2.1)
+if (!dir.exists(sub.directory.2.1.fp)) dir.create(sub.directory.2.1.fp)
+
+# Create sub-directory  input
+###################################################
+sub.directory.2.1.1.fp <- paste0(sub.directory.2.1.fp, sub.directory.2.1.1)
+if (!dir.exists(sub.directory.2.1.1.fp)) dir.create(sub.directory.2.1.1.fp)
+
+# Create sub-directory  growth curves
+###################################################
+sub.directory.2.1.2.fp <- paste0(sub.directory.2.1.fp, sub.directory.2.1.2)
+if (!dir.exists(sub.directory.2.1.2.fp)) dir.create(sub.directory.2.1.2.fp)
+
+# Create sub-directory  models
+###################################################
+sub.directory.2.1.2.1.fp <- paste0(sub.directory.2.1.2.fp, sub.directory.2.1.2.1)
+if (!dir.exists(sub.directory.2.1.2.1.fp)) dir.create(sub.directory.2.1.2.1.fp)
+
+# Create sub-directory  Bonney
+###################################################
+sub.directory.2.1.2.1.1.fp <- paste0(sub.directory.2.1.2.1.fp, sub.directory.2.1.2.1.1)
+if (!dir.exists(sub.directory.2.1.2.1.1.fp)) dir.create(sub.directory.2.1.2.1.1.fp)
+
+# Create sub-directory  Hoare
+###################################################
+sub.directory.2.1.2.1.2.fp <- paste0(sub.directory.2.1.2.1.fp, sub.directory.2.1.2.1.2)
+if (!dir.exists(sub.directory.2.1.2.1.2.fp)) dir.create(sub.directory.2.1.2.1.2.fp)
+
+# Create sub-directory  Fryxell
+###################################################
+sub.directory.2.1.2.1.3.fp <- paste0(sub.directory.2.1.2.1.fp, sub.directory.2.1.2.1.3)
+if (!dir.exists(sub.directory.2.1.2.1.3.fp)) dir.create(sub.directory.2.1.2.1.3.fp)
+
+# Create sub-directory  plots
+###################################################
+sub.directory.2.1.2.2.fp <- paste0(sub.directory.2.1.2.fp, sub.directory.2.1.2.2)
+if (!dir.exists(sub.directory.2.1.2.2.fp)) dir.create(sub.directory.2.1.2.2.fp)
+
+# Create sub-directory  raw data 
+###################################################
+sub.directory.2.1.2.2.1.fp <- paste0(sub.directory.2.1.2.2.fp, sub.directory.2.1.2.2.1)
+if (!dir.exists(sub.directory.2.1.2.2.1.fp)) dir.create(sub.directory.2.1.2.2.1.fp)
+
+# Create sub-directory  Bonney 
+###################################################
+sub.directory.2.1.2.2.1.1.fp <- paste0(sub.directory.2.1.2.2.1.fp, sub.directory.2.1.2.2.1.1)
+if (!dir.exists(sub.directory.2.1.2.2.1.1.fp)) dir.create(sub.directory.2.1.2.2.1.1.fp)
+
+# Create sub-directory  Hoare
+###################################################
+sub.directory.2.1.2.2.1.2.fp <- paste0(sub.directory.2.1.2.2.1.fp, sub.directory.2.1.2.2.1.2)
+if (!dir.exists(sub.directory.2.1.2.2.1.2.fp)) dir.create(sub.directory.2.1.2.2.1.2.fp)
+
+# Create sub-directory  Fryxell
+###################################################
+sub.directory.2.1.2.2.1.3.fp <- paste0(sub.directory.2.1.2.2.1.fp, sub.directory.2.1.2.2.1.3)
+if (!dir.exists(sub.directory.2.1.2.2.1.3.fp)) dir.create(sub.directory.2.1.2.2.1.3.fp)
+
+# Create sub-directory  easylinear
+###################################################
+sub.directory.2.1.2.2.2.fp <- paste0(sub.directory.2.1.2.2.fp, sub.directory.2.1.2.2.2)
+if (!dir.exists(sub.directory.2.1.2.2.2.fp)) dir.create(sub.directory.2.1.2.2.2.fp)
+
+# Create sub-directory  Bonney 
+###################################################
+sub.directory.2.1.2.2.2.1.fp <- paste0(sub.directory.2.1.2.2.2.fp, sub.directory.2.1.2.2.2.1)
+if (!dir.exists(sub.directory.2.1.2.2.2.1.fp)) dir.create(sub.directory.2.1.2.2.2.1.fp)
+
+# Create sub-directory  Hoare
+###################################################
+sub.directory.2.1.2.2.2.2.fp <- paste0(sub.directory.2.1.2.2.2.fp, sub.directory.2.1.2.2.2.2)
+if (!dir.exists(sub.directory.2.1.2.2.2.2.fp)) dir.create(sub.directory.2.1.2.2.2.2.fp)
+
+# Create sub-directory  Fryxell
+###################################################
+sub.directory.2.1.2.2.2.3.fp <- paste0(sub.directory.2.1.2.2.2.fp, sub.directory.2.1.2.2.2.3)
+if (!dir.exists(sub.directory.2.1.2.2.2.3.fp)) dir.create(sub.directory.2.1.2.2.2.3.fp)
+
+# Create sub-directory  model trends
+###################################################
+sub.directory.2.1.2.2.3.fp <- paste0(sub.directory.2.1.2.2.fp, sub.directory.2.1.2.2.3)
+if (!dir.exists(sub.directory.2.1.2.2.3.fp)) dir.create(sub.directory.2.1.2.2.3.fp)
+
+# Create sub-directory  Bonney 
+###################################################
+sub.directory.2.1.2.2.3.1.fp <- paste0(sub.directory.2.1.2.2.3.fp, sub.directory.2.1.2.2.3.1)
+if (!dir.exists(sub.directory.2.1.2.2.3.1.fp)) dir.create(sub.directory.2.1.2.2.3.1.fp)
+
+# Create sub-directory  Hoare
+###################################################
+sub.directory.2.1.2.2.3.2.fp <- paste0(sub.directory.2.1.2.2.3.fp, sub.directory.2.1.2.2.3.2)
+if (!dir.exists(sub.directory.2.1.2.2.3.2.fp)) dir.create(sub.directory.2.1.2.2.3.2.fp)
+
+# Create sub-directory  Fryxell
+###################################################
+sub.directory.2.1.2.2.3.3.fp <- paste0(sub.directory.2.1.2.2.3.fp, sub.directory.2.1.2.2.3.3)
+if (!dir.exists(sub.directory.2.1.2.2.3.3.fp)) dir.create(sub.directory.2.1.2.2.3.3.fp)
+
+```
+
+### Load R packages  
+```{r Install and load packages, echo = FALSE, include = FALSE}
+# install.packages("tidyverse")
+# install.packages("knitr")
+
+library(knitr); packageVersion("knitr")
+#library(kableExtra); packageVersion("kableExtra")
+library(tidyverse); packageVersion("tidyverse")
+library(dplyr)
+#library(purrr)
+library(growthrates)
+#library(broom)
+#library(patchwork)
+#library(nlstools)  # Nonlinear regression tools
+#library(minpack.lm) # For Levenberg-Marquardt algorithm
+
+```
+
+* r version: `r getRversion()`
+* RStudio version: `r rstudioapi::versionInfo()$version`
+* r packages:  
+  knitr, `r packageVersion("knitr")` 
+   tidyverse, `r packageVersion("tidyverse")` 
+   
+
+### Input Files
+Required input files:   
+  
+1.  Spreadsheets with percent photoautotrophic surface cover for each sample from each basin.  From R markdown file: 
+MDV-nutrient-limitation-soils-microscope-counts.Rmd  
+
+```{r input data files}
+# Count Files
+countFile.1.fp <- paste0(sub.directory.2.1.1.fp, "/BonneyBasin_counts_percent_time_series.csv") 
+countFile.2.fp <- paste0(sub.directory.2.1.1.fp, "/HoareBasin_counts_percent_time_series.csv") 
+countFile.3.fp <- paste0(sub.directory.2.1.1.fp, "/FryxellBasin_counts_percent_time_series.csv") 
+
+#input data
+df.b <- read.csv(countFile.1.fp, header = T)
+df.h <- read.csv(countFile.2.fp, header = T)
+df.f <- read.csv(countFile.3.fp, header = T)
+
+# Filter out rows with plates not in experiment
+df.b.1 <- df.b %>% filter(SampleID != "BNM_11")
+df.b.1 <- df.b.1 %>% filter(SampleID != "BNM_03")
+
+
+```
+
+```{r plot growth - by plate}
+# Function to Plot Trends for Each Plate Number and Store Outputs
+plot_growth_trends_by_plate <- function(df, basin, base_filepath) {
+  
+  if (!all(c("plate_number", "basin", "treatment") %in% colnames(df))) {
+    warning("Required columns ('plate_number', 'basin', 'treatment') not found in data frame.")
+    return(NULL)
+  }
+  
+  plate_groups <- split(df, df$plate_number)  # Split data by plate number
+  
+  # Initialize storage list
+  stored_plots <- list()
+  
+  for (plate_id in names(plate_groups)) {
+    df_subset <- na.omit(plate_groups[[plate_id]])  # Remove missing values
+    
+    if (nrow(df_subset) < 5) {  # Avoid plotting with insufficient data
+      cat("\nSkipping plot for plate", plate_id, "due to insufficient data.\n")
+      next
+    }
+    
+    # Extract basin and treatment values
+    treatment_name <- unique(df_subset$treatment)
+    
+    # Generate Plot
+    p <- ggplot(df_subset, aes(x = days, y = primary_cover)) +
+      geom_point() +
+      geom_smooth(method = "lm", se = FALSE, color = "royalblue") +  # Linear Trend Line
+      geom_smooth(method = "auto", se = FALSE, color = "grey30") +  # Fit exactly to data
+      labs(title = paste(basin, "-", treatment_name, "- Plate", plate_id),
+           x = "Days", y = "Surface Cover (%)") +
+      theme_minimal()
+    
+    print(p)  # Print each plate's growth trend plot
+    
+    # Store plot
+    stored_plots[[paste(basin, treatment_name, plate_id, sep = "_")]] <- p
+    
+    # Define file path and save plots
+    file_path <- file.path(base_filepath, paste0(basin, "_", treatment_name, "_", plate_id))
+    
+    ggsave(filename = paste0(file_path, ".jpeg"), plot = p, width = 7, height = 7, dpi = 300)
+    ggsave(filename = paste0(file_path, ".pdf"), plot = p, width = 7, height = 7)
+    ggsave(filename = paste0(file_path, ".svg"), plot = p, width = 7, height = 7)
+  }
+  
+  return(stored_plots)  # Return stored plots for downstream analysis
+}
+
+# Run function and store outputs dynamically
+stored_growth_by_plate_bn <- plot_growth_trends_by_plate(df.b.1, "Bonney", sub.directory.2.1.2.2.1.1.fp)
+stored_growth_by_plate_hr <- plot_growth_trends_by_plate(df.h, "Hoare", sub.directory.2.1.2.2.1.2.fp)
+stored_growth_by_plate_fx <- plot_growth_trends_by_plate(df.f, "Fryxell", sub.directory.2.1.2.2.1.3.fp)
+
+```
+
+```{r plot growth by treatment}
+# Function to Plot and Save Trends for Each Treatment Level
+plot_growth_trends_by_treatment <- function(df, basin, base_filepath) {
+  
+  if (!all(c("basin", "treatment") %in% colnames(df))) {
+    warning("Required columns ('basin', 'treatment') not found in data frame.")
+    return(NULL)
+  }
+  
+  treatment_groups <- split(df, df$treatment)  # Split data by treatment
+
+  # Initialize storage list
+  stored_plots <- list()
+
+  for (treatment_name in names(treatment_groups)) {
+    df_subset <- na.omit(treatment_groups[[treatment_name]])  # Remove missing values
+
+    if (nrow(df_subset) < 5) {  # Avoid plotting with insufficient data
+      cat("\nSkipping plot for treatment", treatment_name, "due to insufficient data.\n")
+      next
+    }
+
+    # Generate Plot
+    p <- ggplot(df_subset, aes(x = days, y = primary_cover)) +
+      geom_point() +
+      geom_smooth(method = "lm", se = FALSE, color = "royalblue") +  # Linear Trend Line
+      geom_smooth(method = "auto", se = FALSE, color = "grey30") +  # Logistic Trend Line
+      labs(title = paste(basin, "-", treatment_name),
+           x = "Days", y = "Surface Cover (%)") +
+      theme_minimal()
+    
+    print(p)  # Print each treatment's growth trend plot
+    
+    # Store plot
+    stored_plots[[paste(basin, treatment_name, sep = "_")]] <- p
+    
+    # Define file path and save plots
+    file_path <- file.path(base_filepath, paste0(basin, "_", treatment_name, "_ALL"))
+
+    ggsave(filename = paste0(file_path, ".jpeg"), plot = p, width = 7, height = 7, dpi = 300)
+    ggsave(filename = paste0(file_path, ".pdf"), plot = p, width = 7, height = 7)
+    ggsave(filename = paste0(file_path, ".svg"), plot = p, width = 7, height = 7)
+  }
+  
+  return(stored_plots)  # Return stored plots for downstream analysis
+}
+
+# Run function and store outputs dynamically
+stored_treatment_bn <- plot_growth_trends_by_treatment(df.b.1, "Bonney", sub.directory.2.1.2.2.1.1.fp)
+stored_treatment_hr <- plot_growth_trends_by_treatment(df.h, "Hoare", sub.directory.2.1.2.2.1.2.fp)
+stored_treatment_fx <- plot_growth_trends_by_treatment(df.f, "Fryxell", sub.directory.2.1.2.2.1.3.fp)
+
+```
+
+# Easylinear model parameters  
+```{r fit easylinear}
+# Function to fit easylinear model, store results, print to console, and save output
+fit_easylinear_model <- function(df, basin, base_filepath) {
+  
+  # Ensure all dependent variable values are positive
+  df$primary_cover[df$primary_cover == 0] <- 0.5  
+
+  # Initialize storage list
+  stored_models <- list()
+
+  # Loop through each treatment and plate number
+  for (treatment in unique(df$treatment)) {
+    for (plate_number in unique(df$plate_number[df$treatment == treatment])) {
+      
+      # Subset data
+      df_subset <- df[df$treatment == treatment & df$plate_number == plate_number, ]
+      
+      # Fit model
+      model <- all_easylinear(primary_cover ~ days | replicate, data = df_subset, h = 4, quota = 0.95)
+      
+      # Store model for later use
+      model_key <- paste(basin, treatment, plate_number, sep = "_")
+      stored_models[[model_key]] <- model
+
+      # Capture model summary
+      model_summary <- capture.output(print(summary(model)))
+
+      # Define filename: "basin_treatment_plateNumber_easylinear.txt"
+      output_filepath <- file.path(base_filepath, paste0(basin, "_", treatment, "_", plate_number, "_easylinear.txt"))
+
+      # Print structured output to console
+      cat("\nBasin:", basin, "| Treatment:", treatment, "| Plate Number:", plate_number, "\n")
+      cat(model_summary, sep = "\n\n")
+
+      # Save structured output to dynamically named file
+      writeLines(model_summary, con = output_filepath)
+    }
+  }
+  
+  return(stored_models)  # Return stored models for downstream analysis
+}
+
+# Run models, print summaries, and save outputs dynamically
+stored_easylinear_bn <- fit_easylinear_model(df.b.1, "Bonney", sub.directory.2.1.2.1.1.fp)
+stored_easylinear_hr <- fit_easylinear_model(df.h, "Hoare", sub.directory.2.1.2.1.2.fp)
+stored_easylinear_fx <- fit_easylinear_model(df.f, "Fryxell", sub.directory.2.1.2.1.3.fp)
+
+```
+
+```{r easylinear outputs}
+# Extract model results and save them
+extract_easylinear_results <- function(stored_models, basin, output_path) {
+  
+  results_list <- lapply(stored_models, function(model) results(model))
+  
+  # Convert list to dataframe
+  results_df <- bind_rows(results_list, .id = "model_id")
+
+  # Split model_id into columns for basin, treatment, and plate_number
+  results_df <- results_df %>%
+    separate(model_id, into = c("basin", "treatment", "plate_number"), sep = "_", convert = TRUE)
+
+  # Print results
+  print(results_df)
+
+  # Save as CSV
+  write.csv(results_df, file = file.path(output_path, paste0(basin, "_easylinear_results.csv")), row.names = FALSE)
+
+  return(results_df)
+}
+
+# Extract and save results for each basin
+results_bn <- extract_easylinear_results(stored_easylinear_bn, "Bonney", sub.directory.2.1.2.1.1.fp)
+results_hr <- extract_easylinear_results(stored_easylinear_hr, "Hoare", sub.directory.2.1.2.1.2.fp)
+results_fx <- extract_easylinear_results(stored_easylinear_fx, "Fryxell", sub.directory.2.1.2.1.3.fp)
+
+```
+
+```{r plot easylinear trends - plot}
+# Function to plot easylinear model fits for each plate and treatment
+plot_easylinear_by_plate <- function(df, basin, output_path) {
+  
+  # Ensure all dependent variable values are positive
+  df$primary_cover[df$primary_cover == 0] <- 0.5  
+
+  # Initialize storage list for models
+  stored_models <- list()
+  
+  # Loop through each treatment and plate number
+  for (treatment in unique(df$treatment)) {
+    for (plate_number in unique(df$plate_number[df$treatment == treatment])) {
+      
+      # Subset data for the given treatment and plate number
+      df_subset <- df[df$treatment == treatment & df$plate_number == plate_number, ]
+      
+      # Fit easylinear model
+      fit <- fit_easylinear(df_subset$days ,df_subset$primary_cover, h = 4, quota = 0.95)
+      
+      # Store model in the list
+      stored_models[[paste(treatment, plate_number, sep = "_")]] <- fit
+      
+      # Set up plotting window
+      par(mfrow = c(1, 2))
+      
+      # Generate and print plots
+      plot(fit, main = paste("EasyLinear-", basin, treatment, plate_number))
+      
+      # Save plots to files
+      filename_base <- paste0(output_path, "/", basin, "_", treatment, "_", plate_number, "_easylinear_trend")
+      jpeg(paste0(filename_base, ".jpeg"))
+      plot(fit, main = paste("EasyLinear -", basin, treatment, plate_number))
+      dev.off()
+      
+      pdf(paste0(filename_base, ".pdf"))
+      plot(fit, main = paste("EasyLinear -", basin, treatment, plate_number))
+      dev.off()
+      
+      svg(paste0(filename_base, ".svg"))
+      plot(fit, main = paste("EasyLinear -", basin, treatment, plate_number))
+      dev.off()
+    }
+  }
+  
+  return(stored_models)  # Return stored models for further analysis
+}
+
+# Apply function to datasets with appropriate basin names
+stored_easylinear_bn <- plot_easylinear_by_plate(df.b.1, "Bonney", sub.directory.2.1.2.2.2.1.fp)
+stored_easylinear_hr <- plot_easylinear_by_plate(df.h, "Hoare", sub.directory.2.1.2.2.2.2.fp)
+stored_easylinear_fx <- plot_easylinear_by_plate(df.f, "Fryxell", sub.directory.2.1.2.2.2.3.fp)
+
+```
+
+```{r plot easylinear trends log - plate}
+# Function to plot easylinear model fits for each plate and treatment
+plot_easylinear_by_plate_log <- function(df, basin, output_path) {
+  
+  # Ensure all dependent variable values are positive
+  df$primary_cover[df$primary_cover == 0] <- 0.5  
+
+  # Initialize storage list for models
+  stored_models <- list()
+  
+  # Loop through each treatment and plate number
+  for (treatment in unique(df$treatment)) {
+    for (plate_number in unique(df$plate_number[df$treatment == treatment])) {
+      
+      # Subset data for the given treatment and plate number
+      df_subset <- df[df$treatment == treatment & df$plate_number == plate_number, ]
+      
+      # Fit easylinear model
+      fit <- fit_easylinear(df_subset$days ,df_subset$primary_cover, h = 4, quota = 0.95)
+      
+      # Store model in the list
+      stored_models[[paste(treatment, plate_number, sep = "_")]] <- fit
+      
+      # Set up plotting window
+      par(mfrow = c(1, 2))
+      
+      # Generate and print plots
+      plot(fit, log = "y", main = paste("EasyLinear (Log Scale) -", basin, treatment, plate_number))
+      
+      # Save plots to files
+      filename_base <- paste0(output_path, "/", basin, "_", treatment, "_", plate_number, "_easylinear_trend_LOG")
+      jpeg(paste0(filename_base, ".jpeg"))
+      plot(fit, main = paste("EasyLinear -", basin, treatment, plate_number))
+      dev.off()
+      
+      pdf(paste0(filename_base, ".pdf"))
+      plot(fit, main = paste("EasyLinear -", basin, treatment, plate_number))
+      dev.off()
+      
+      svg(paste0(filename_base, ".svg"))
+      plot(fit, main = paste("EasyLinear -", basin, treatment, plate_number))
+      dev.off()
+    }
+  }
+  
+  return(stored_models)  # Return stored models for further analysis
+}
+
+# Apply function to datasets with appropriate basin names
+stored_easylinear_bn <- plot_easylinear_by_plate_log(df.b.1, "Bonney", sub.directory.2.1.2.2.2.1.fp)
+stored_easylinear_hr <- plot_easylinear_by_plate_log(df.h, "Hoare", sub.directory.2.1.2.2.2.2.fp)
+stored_easylinear_fx <- plot_easylinear_by_plate_log(df.f, "Fryxell", sub.directory.2.1.2.2.2.3.fp)
+```
+
+```{r plot easylinear mumax - plate}
+#function to plot maximum growth rate
+plot_growth_rate <- function(results, basin, output_path) {
+  
+  p <- ggplot(results, aes(x = replicate, y = mumax)) +
+    geom_point(size = 4, color = "grey50") +
+    theme_bw() +
+    facet_wrap(~ treatment, nrow = 1) +  # Facet by treatment
+    labs(title = paste("Intrinsic Growth Rate -", basin),
+         x = "Replicate",
+         y = "Surface Cover per Day")
+
+  # Print plot to console
+  print(p)
+
+  # Save plot in multiple formats
+  ggsave(filename = paste0(output_path, "/", basin, "_growth_rate.jpeg"), plot = p, device = "jpeg")
+  ggsave(filename = paste0(output_path, "/", basin, "_growth_rate.pdf"), plot = p, device = "pdf")
+  ggsave(filename = paste0(output_path, "/", basin, "_growth_rate.svg"), plot = p, device = "svg")
+}
+
+# Generate plots for each dataset
+plot_growth_rate(results_bn, "Bonney", sub.directory.2.1.2.2.2.1.fp)
+plot_growth_rate(results_hr, "Hoare", sub.directory.2.1.2.2.2.2.fp)
+plot_growth_rate(results_fx, "Fryxell", sub.directory.2.1.2.2.2.3.fp)
+
+```
+
+```{r plot easylinear lag- plate}
+#function to plot lag
+plot_lag_time <- function(results, basin, output_path) {
+  
+  p <- ggplot(results, aes(x = replicate, y = lag)) +
+    geom_point(size = 4, color = "navyblue") +
+    theme_bw() +
+    facet_wrap(~ treatment, nrow = 1) +  # Facet by treatment
+    labs(title = paste(basin, "- Lag Time"),
+         x = "Replicate",
+         y = "# of Days")
+
+  # Print plot to console
+  print(p)
+
+  # Save plot in multiple formats
+  ggsave(filename = paste0(output_path, "/", basin, "_lag_time.jpeg"), plot = p, device = "jpeg")
+  ggsave(filename = paste0(output_path, "/", basin, "_lag_time.pdf"), plot = p, device = "pdf")
+  ggsave(filename = paste0(output_path, "/", basin, "_lag_time.svg"), plot = p, device = "svg")
+}
+
+# Generate plots for each dataset
+plot_lag_time(results_bn, "Bonney", sub.directory.2.1.2.2.2.1.fp)
+plot_lag_time(results_hr, "Hoare", sub.directory.2.1.2.2.2.2.fp)
+plot_lag_time(results_fx, "Fryxell", sub.directory.2.1.2.2.2.3.fp)
+
+```
+
+```{r plot easylinear y0_lm - plate}
+#function to plot initial population size
+plot_initial_pop <- function(results, basin, output_path) {
+  
+  p <- ggplot(results, aes(x = replicate, y = y0_lm)) +
+    geom_point(size = 4, color = "grey50") +
+    theme_bw() +
+    facet_wrap(~ treatment, nrow = 1) +  # Facet by treatment
+    labs(title = paste(basin, " - Initial Population Size"),
+         x = "Replicate",
+         y = "Surface Cover (t = 0)")
+
+  # Print plot to console
+  print(p)
+
+  # Save plot in multiple formats
+  ggsave(filename = paste0(output_path, "/", basin, "_initial_pop.jpeg"), plot = p, device = "jpeg")
+  ggsave(filename = paste0(output_path, "/", basin, "_initial_pop.pdf"), plot = p, device = "pdf")
+  ggsave(filename = paste0(output_path, "/", basin, "_initial_pop.svg"), plot = p, device = "svg")
+}
+
+# Generate plots for each dataset
+plot_initial_pop(results_bn, "Bonney", sub.directory.2.1.2.2.2.1.fp)
+plot_initial_pop(results_hr, "Hoare", sub.directory.2.1.2.2.2.2.fp)
+plot_initial_pop(results_fx, "Fryxell", sub.directory.2.1.2.2.2.3.fp)
+
+```
+
+```{r easylinear outputs averages}
+# Function to calculate averages (mean) and standard error for numeric parameters
+calculate_avg_se_easylinear <- function(results_df, basin, output_path) {
+  
+  # Drop non-numeric columns before summarizing
+  results_df <- results_df %>%
+    select(-plate_number, -replicate)  # Ensures only relevant columns are included
+  
+  # Compute mean and standard error for numeric parameters grouped by basin and treatment
+  avg_se_results_df <- results_df %>%
+    group_by(basin, treatment) %>%
+    summarise(
+      across(where(is.numeric), list(
+        mean = ~ mean(.x, na.rm = TRUE), 
+        se = ~ sd(.x, na.rm = TRUE) / sqrt(sum(!is.na(.x)))
+      )),
+      .groups = "drop"
+    )
+
+  # Print averaged results
+  print(avg_se_results_df)
+
+  # Save as CSV file
+  write.csv(avg_se_results_df, file = file.path(output_path, paste0(basin, "_avg_easylinear_results.csv")), row.names = FALSE)
+
+  return(avg_se_results_df)
+}
+
+# Compute and save averages for each basin
+avg_se_results_bn <- calculate_avg_se_easylinear(results_bn, "Bonney", sub.directory.2.1.2.1.1.fp)
+avg_se_results_hr <- calculate_avg_se_easylinear(results_hr, "Hoare", sub.directory.2.1.2.1.2.fp)
+avg_se_results_fx <- calculate_avg_se_easylinear(results_fx, "Fryxell", sub.directory.2.1.2.1.3.fp)
+
+```
+
+```{r plot easylinear mumax average - treatment}
+# Function to calculate mean and standard error of mumax for each treatment group
+plot_avg_growth_rate <- function(results, basin, output_path) {
+  
+  # Aggregate data: calculate mean and standard error
+  summary_data <- results %>%
+    group_by(treatment) %>%
+    summarise(
+      mumax_mean = mean(mumax, na.rm = TRUE),
+      mumax_se = sd(mumax, na.rm = TRUE) / sqrt(n())
+    )
+  
+  # Create plot
+  p <- ggplot(summary_data, aes(x = treatment, y = mumax_mean)) +
+    geom_point(size = 4, color = "steelblue", alpha = 0.7) +  # Plot mean mumax as points
+    geom_errorbar(aes(ymin = mumax_mean - mumax_se, ymax = mumax_mean + mumax_se),
+                  width = 0.2, color = "black") +  # Error bars for standard error
+    theme_bw() +
+    labs(title = paste(basin, "Intrinsic Growth Rate (mumax)"),
+         x = "",
+         y = "Mean Surface Cover per day") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for clarity
+
+  # Print plot
+  print(p)
+  
+  # Save plot in multiple formats
+  ggsave(filename = paste0(output_path, "/", basin, "_growth_rate_mean.jpeg"), plot = p, device = "jpeg")
+  ggsave(filename = paste0(output_path, "/", basin, "_growth_rate_mean.pdf"), plot = p, device = "pdf")
+  ggsave(filename = paste0(output_path, "/", basin, "_growth_rate_mean.svg"), plot = p, device = "svg")
+}
+
+# Apply function to dataset
+plot_avg_growth_rate(results_bn, "Bonney", sub.directory.2.1.2.2.2.1.fp)
+plot_avg_growth_rate(results_hr, "Hoare", sub.directory.2.1.2.2.2.2.fp)
+plot_avg_growth_rate(results_fx, "Fryxell", sub.directory.2.1.2.2.2.3.fp)
+
+```
+
+```{r plot easylinear lag average - treatment}
+# Function to calculate mean and standard error of lag time for each treatment group
+plot_avg_lag_time <- function(results, basin, output_path) {
+  
+  # Aggregate data: calculate mean and standard error
+  summary_data <- results %>%
+    group_by(treatment) %>%
+    summarise(
+      lag_mean = mean(lag, na.rm = TRUE),
+      lag_se = sd(lag, na.rm = TRUE) / sqrt(n())
+    )
+  
+  # Create plot
+  p <- ggplot(summary_data, aes(x = treatment, y = lag_mean)) +
+    geom_point(size = 4, color = "navyblue", alpha = 0.7) +  # Plot mean lag as points
+    geom_errorbar(aes(ymin = lag_mean - lag_se, ymax = lag_mean + lag_se),
+                  width = 0.2, color = "black") +  # Error bars for standard error
+    theme_bw() +
+    labs(title = paste(basin, "Average Lag Time"),
+         x = "Treatment",
+         y = "Mean Lag Time (# of Days)") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for clarity
+
+  # Print plot
+  print(p)
+  
+   # Save plot in multiple formats
+  ggsave(filename = paste0(output_path, "/", basin, "_lag_time_mean.jpeg"), plot = p, device = "jpeg")
+  ggsave(filename = paste0(output_path, "/", basin, "_lag_time_mean.pdf"), plot = p, device = "pdf")
+  ggsave(filename = paste0(output_path, "/", basin, "_lag_time_mean.svg"), plot = p, device = "svg")
+}
+
+# Apply function to each dataset, specifying basin names
+plot_avg_lag_time(results_bn, "Bonney", sub.directory.2.1.2.2.2.1.fp)
+plot_avg_lag_time(results_hr, "Hoare", sub.directory.2.1.2.2.2.2.fp)
+plot_avg_lag_time(results_fx, "Fryxell", sub.directory.2.1.2.2.2.3.fp)
+
+```
+
+
+```{r plot easylinear y0_lm average - treatment}
+# Function to calculate mean and standard error of y0_lm for each treatment group
+plot_avg_initial_pop <- function(results, basin, output_path) {
+  
+  # Aggregate data: calculate mean and standard error
+  summary_data <- results %>%
+    group_by(treatment) %>%
+    summarise(
+      y0_lm_mean = mean(y0_lm, na.rm = TRUE),
+      y0_lm_se = sd(y0_lm, na.rm = TRUE) / sqrt(n())
+    )
+  
+  # Create plot
+  p <- ggplot(summary_data, aes(x = treatment, y = y0_lm_mean)) +
+    geom_point(size = 4, color = "steelblue", alpha = 0.7) +  # Plot mean y0_lm as points
+    geom_errorbar(aes(ymin = y0_lm_mean - y0_lm_se, ymax = y0_lm_mean + y0_lm_se),
+                  width = 0.2, color = "black") +  # Error bars for standard error
+    theme_bw() +
+    labs(title = paste(basin, " - Initial Population Size"),
+         x = "",
+         y = "Surface Cover (t = 0)") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for clarity
+
+  # Print plot
+  print(p)
+  
+  # Save plot in multiple formats
+  ggsave(filename = paste0(output_path, "/", basin, "_initial_pop_mean.jpeg"), plot = p, device = "jpeg")
+  ggsave(filename = paste0(output_path, "/", basin, "_initial_pop_mean.pdf"), plot = p, device = "pdf")
+  ggsave(filename = paste0(output_path, "/", basin, "_initial_pop_mean.svg"), plot = p, device = "svg")
+}
+
+# Apply function to dataset
+plot_avg_initial_pop(results_bn, "Bonney", sub.directory.2.1.2.2.2.1.fp)
+plot_avg_initial_pop(results_hr, "Hoare", sub.directory.2.1.2.2.2.2.fp)
+plot_avg_initial_pop(results_fx, "Fryxell", sub.directory.2.1.2.2.2.3.fp)
+
+```
+
+```{r fit logistic}
+# Function to fit logistic growth models for each treatment within a basin
+fit_logistic_growth <- function(df, basin, base_filepath, plot_filepath, start_params_list) {
+  
+  # Ensure all dependent variable values are positive
+  df$primary_cover[df$primary_cover == 0] <- 0.5  
+
+  # Initialize storage list for models
+  stored_models <- list()
+  
+  # Loop through each treatment
+  for (treatment in unique(df$treatment)) {
+    
+    # Subset data for the given treatment
+    df_subset <- df[df$treatment == treatment, ]
+    
+    # Check if custom parameters are defined for this basin-treatment combination
+    if (!is.null(start_params_list[[basin]][[treatment]])) {
+      p <- start_params_list[[basin]][[treatment]]
+    } else {
+      message(paste("No start parameters found for", basin, treatment, "- using default values"))
+      p <- c(y0 = 0.01, mumax = 0.2, K = 0.1)  # Default fallback values
+    }
+    
+    lower <- c(y0 = 1e-6, mumax = 0, K = 0)
+    upper <- c(y0 = 0.5, mumax = 0.5, K = 100)
+    
+    # Ensure sufficient data points
+    if (nrow(df_subset) > 2) {
+      
+      # Fit logistic growth model
+      fit <- fit_growthmodel(FUN = grow_logistic, p = p, time = df_subset$days, y = df_subset$primary_cover,
+                             lower = lower, upper = upper)
+      
+      # Store model in list
+      stored_models[[treatment]] <- fit
+      
+      # Print model summary to console
+      summary_output <- capture.output(summary(fit))
+      print(summary(fit))
+      
+      # Save model summary as a .txt file
+      txt_filename <- file.path(base_filepath, paste0(basin, "_", treatment, "_logistic.txt"))
+      writeLines(summary_output, txt_filename)
+      
+      # Set up plotting window
+      par(mfrow = c(1, 2))
+      
+      # Generate and print plots
+      plot(fit, main = paste("Logistic Growth -", basin, treatment))
+      plot(fit, log = "y", main = paste("Logistic Growth (Log Scale) -", basin, treatment))
+      
+      # Save normal scale plot
+      normal_plot_filename <- file.path(plot_filepath, paste0(basin, "_", treatment, "_logistic_growth.jpeg"))
+      jpeg(normal_plot_filename)
+      plot(fit, main = paste("Logistic Growth -", basin, treatment))
+      dev.off()
+      
+      pdf(file.path(plot_filepath, paste0(basin, "_", treatment, "_logistic_growth.pdf")))
+      plot(fit, main = paste("Logistic Growth -", basin, treatment))
+      dev.off()
+      
+      svg(file.path(plot_filepath, paste0(basin, "_", treatment, "_logistic_growth.svg")))
+      plot(fit, main = paste("Logistic Growth -", basin, treatment))
+      dev.off()
+      
+      # Save log-scale plot
+      log_plot_filename <- file.path(plot_filepath, paste0(basin, "_", treatment, "_logistic_growth_LOG.jpeg"))
+      jpeg(log_plot_filename)
+      plot(fit, log = "y", main = paste("Logistic Growth (Log Scale) -", basin, treatment))
+      dev.off()
+      
+      pdf(file.path(plot_filepath, paste0(basin, "_", treatment, "_logistic_growth_LOG.pdf")))
+      plot(fit, log = "y", main = paste("Logistic Growth (Log Scale) -", basin, treatment))
+      dev.off()
+      
+      svg(file.path(plot_filepath, paste0(basin, "_", treatment, "_logistic_growth_LOG.svg")))
+      plot(fit, log = "y", main = paste("Logistic Growth (Log Scale) -", basin, treatment))
+      dev.off()
+      
+    } else {
+      message(paste("Skipping model fit for", basin, treatment, "due to insufficient data points."))
+    }
+  }
+  
+  return(stored_models)  # Return stored models for further analysis
+}
+
+# Example of defining **custom starting parameters for each basin-treatment combination**
+start_params_list <- list(
+  "Bonney" = list(
+    "CTRL" = c(y0 = 0.018, mumax = 0.12, K = 14),
+    "N" = c(y0 = 0.018, mumax = 0.12, K = 14),
+    "P" = c(y0 = 0.003, mumax = 0.20, K = 93),
+    "NP" = c(y0 = 0.018, mumax = 0.16, K = 97)
+  ),
+  "Hoare" = list(
+    "CTRL" = c(y0 = 0.366, mumax = 0.02, K = 2),
+    "N" = c(y0 = 0.027, mumax = 0.11, K = 16),
+    "P" = c(y0 = 0.013, mumax = 0.19, K = 3),
+    "NP" = c(y0 = 0.178, mumax = 0.05, K = 75)
+  ),
+  "Fryxell" = list(
+    "CTRL" = c(y0 = 0.003, mumax = 0.14, K = 17),
+    "N" = c(y0 = 0.013, mumax = 0.14, K = 20),
+    "P" = c(y0 = 0.0003, mumax = 0.24, K = 29),
+    "NP" = c(y0 = 0.007, mumax = 0.15, K = 68)
+  )
+)
+
+# Apply function to datasets with basin-specific file paths
+stored_logistic_bn <- fit_logistic_growth(df.b.1, "Bonney", sub.directory.2.1.2.1.1.fp, sub.directory.2.1.2.2.3.1.fp, start_params_list)
+stored_logistic_hr <- fit_logistic_growth(df.h, "Hoare", sub.directory.2.1.2.1.2.fp, sub.directory.2.1.2.2.3.2.fp, start_params_list)
+stored_logistic_fx <- fit_logistic_growth(df.f, "Fryxell", sub.directory.2.1.2.1.3.fp, sub.directory.2.1.2.2.3.3.fp, start_params_list)
+
+```
+
+```{r fit logistic 2}
+# Function to fit logistic growth models for each treatment within a basin
+fit_logistic_growth <- function(df, basin, base_filepath, plot_filepath, start_params_list) {
+  
+  # Ensure all dependent variable values are positive
+  df$primary_cover[df$primary_cover == 0] <- 0.5  
+
+  # Initialize storage list for models
+  stored_models <- list()
+  
+  # Loop through each treatment
+  for (treatment in unique(df$treatment)) {
+    
+    # Subset data for the given treatment
+    df_subset <- df[df$treatment == treatment, ]
+    
+    # Check if custom parameters are defined for this basin-treatment combination
+    if (!is.null(start_params_list[[basin]][[treatment]])) {
+      p <- start_params_list[[basin]][[treatment]]
+    } else {
+      message(paste("No start parameters found for", basin, treatment, "- using default values"))
+      p <- c(y0 = 0.01, mumax = 0.2, K = 0.1)  # Default fallback values
+    }
+    
+    lower <- c(y0 = 1e-6, mumax = 0, K = 0)
+    upper <- c(y0 = 0.5, mumax = 0.5, K = 100)
+    
+    # Ensure sufficient data points
+    if (nrow(df_subset) > 2) {
+      
+      # Fit logistic growth model
+      fit <- all_growthmodels(primary_cover ~ days | treatment, data = df_subset, FUN=grow_logistic,
+                            p = p, lower = lower, upper = upper)
+      
+       
+      # Store model in list
+      stored_models[[treatment]] <- fit
+      
+      # Print model summary to console
+      summary_output <- capture.output(summary(fit))
+      print(summary(fit))
+      
+      # Save model summary as a .txt file
+      txt_filename <- file.path(base_filepath, paste0(basin, "_", treatment, "_logistic.txt"))
+      writeLines(summary_output, txt_filename)
+      
+      # Set up plotting window
+par(mfrow = c(1, 2))
+
+# Generate and print plots
+plot(fit)
+title(main = paste("Logistic Growth -", basin, treatment))
+plot(fit, log = "y")
+title(main = paste("Logistic Growth (Log Scale) -", basin, treatment))
+
+# Save normal scale plot (JPEG)
+normal_plot_filename <- file.path(plot_filepath, paste0(basin, "_", treatment, "_logistic_growth.jpeg"))
+jpeg(normal_plot_filename)
+plot(fit)
+title(main = paste("Logistic Growth -", basin, treatment))
+dev.off()
+
+# Save normal scale plot (PDF)
+pdf(file.path(plot_filepath, paste0(basin, "_", treatment, "_logistic_growth.pdf")))
+plot(fit)
+title(main = paste("Logistic Growth -", basin, treatment))
+dev.off()
+
+# Save normal scale plot (SVG)
+svg(file.path(plot_filepath, paste0(basin, "_", treatment, "_logistic_growth.svg")))
+plot(fit)
+title(main = paste("Logistic Growth -", basin, treatment))
+dev.off()
+
+# Save log-scale plot (JPEG)
+log_plot_filename <- file.path(plot_filepath, paste0(basin, "_", treatment, "_logistic_growth_LOG.jpeg"))
+jpeg(log_plot_filename)
+plot(fit, log = "y")
+title(main = paste("Logistic Growth (Log Scale) -", basin, treatment))
+dev.off()
+
+# Save log-scale plot (PDF)
+pdf(file.path(plot_filepath, paste0(basin, "_", treatment, "_logistic_growth_LOG.pdf")))
+plot(fit, log = "y")
+title(main = paste("Logistic Growth (Log Scale) -", basin, treatment))
+dev.off()
+
+# Save log-scale plot (SVG)
+svg(file.path(plot_filepath, paste0(basin, "_", treatment, "_logistic_growth_LOG.svg")))
+plot(fit, log = "y")
+title(main = paste("Logistic Growth (Log Scale) -", basin, treatment))
+dev.off()
+
+
+      
+    } else {
+      message(paste("Skipping model fit for", basin, treatment, "due to insufficient data points."))
+    }
+  }
+  
+  return(stored_models)  # Return stored models for further analysis
+}
+
+# Example of defining **custom starting parameters for each basin-treatment combination**
+start_params_list <- list(
+  "Bonney" = list(
+    "CTRL" = c(y0 = 0.018, mumax = 0.12, K = 14),
+    "N" = c(y0 = 0.018, mumax = 0.12, K = 14),
+    "P" = c(y0 = 0.003, mumax = 0.20, K = 93),
+    "NP" = c(y0 = 0.018, mumax = 0.16, K = 97)
+  ),
+  "Hoare" = list(
+    "CTRL" = c(y0 = 0.366, mumax = 0.02, K = 2),
+    "N" = c(y0 = 0.027, mumax = 0.11, K = 16),
+    "P" = c(y0 = 0.013, mumax = 0.19, K = 3),
+    "NP" = c(y0 = 0.178, mumax = 0.05, K = 75)
+  ),
+  "Fryxell" = list(
+    "CTRL" = c(y0 = 0.003, mumax = 0.14, K = 17),
+    "N" = c(y0 = 0.013, mumax = 0.14, K = 20),
+    "P" = c(y0 = 0.0003, mumax = 0.24, K = 29),
+    "NP" = c(y0 = 0.007, mumax = 0.15, K = 68)
+  )
+)
+
+# Apply function to datasets with basin-specific file paths
+stored_logistic_bn <- fit_logistic_growth(df.b.1, "Bonney", sub.directory.2.1.2.1.1.fp, sub.directory.2.1.2.2.3.1.fp, start_params_list)
+stored_logistic_hr <- fit_logistic_growth(df.h, "Hoare", sub.directory.2.1.2.1.2.fp, sub.directory.2.1.2.2.3.2.fp, start_params_list)
+stored_logistic_fx <- fit_logistic_growth(df.f, "Fryxell", sub.directory.2.1.2.1.3.fp, sub.directory.2.1.2.2.3.3.fp, start_params_list)
+
+```
+
+```{r logistic params}
+# Create a list that maps basin names to their model list and output file path
+basin_models <- list(
+  "Bonney" = list(models = stored_logistic_bn, fp = sub.directory.2.1.2.1.1.fp),
+  "Hoare"  = list(models = stored_logistic_hr,  fp = sub.directory.2.1.2.1.2.fp),
+  "Fryxell" = list(models = stored_logistic_fx, fp = sub.directory.2.1.2.1.3.fp)
+)
+
+# Iterate through each basin
+for (basin in names(basin_models)) {
+  
+  # Extract the model list and corresponding file path for the current basin
+  models_list <- basin_models[[basin]]$models
+  out_path <- basin_models[[basin]]$fp
+  
+  # Iterate through each treatment/model in the list
+  for (treatment in names(models_list)) {
+    
+    # Get the fitted model for the treatment
+    fit <- models_list[[treatment]]
+    
+    # Extract the extended coefficients information
+    coef_output <- coef(fit, extended = TRUE)
+    
+    # Print basin, treatment, and coefficients output to the console
+    cat("Basin:", basin, "Treatment:", treatment, "\n")
+    print(coef_output)
+    cat("\n---------------------------\n")
+    
+    # Build file name with basin and treatment
+    txt_filename <- file.path(out_path, paste0(basin, "_", treatment, "_logistic_growth_coefficients.txt"))
+    
+    # Capture the printed output as text
+    output_text <- capture.output({
+      cat("Basin:", basin, "Treatment:", treatment, "\n")
+      print(coef_output)
+    })
+    
+    # Write the captured text to a .txt file
+    writeLines(output_text, txt_filename)
+  }
+}
+
+```
+      
+```{r save logistic parameters}
+# Define a function to extract parameters and store them in a dataframe
+extract_params <- function(model_list, basin_name) {
+  params_df <- data.frame()
+  
+  for (treatment in names(model_list)) {
+    model <- model_list[[treatment]]  # Extract model
+    
+    # Ensure the model exists and has the "fit" slot
+    if (!is.null(model)) {
+      mod.1 <- model@fits
+      mod.2 <- mod.1[[treatment]]
+      mod.3 <- summary(mod.2@fit)
+      mod.coef <- mod.3$par[, "Estimate"]
+      mod.se <- mod.3$par[, "Std. Error"]
+      mod.pval <- mod.3$par[, "Pr(>|t|)"]
+      
+      # Create a temporary dataframe
+      basin_df <- data.frame(
+        Basin = basin_name,
+        Treatment = treatment, 
+        mumax = mod.coef[2],
+        mumax_se = mod.se[2],
+        mumax_p = mod.pval[2],
+        mumax_sig = ifelse(mod.pval[2] < 0.05, "*", "ns"),
+        K = mod.coef[3],
+        K_se = mod.se[3],
+        K_p = mod.pval[3],
+        K_sig = ifelse(mod.pval[3] < 0.05, "*", "ns")
+      )
+      
+      # Append to main dataframe
+      params_df <- rbind(params_df, basin_df)
+    }
+  }
+  
+  return(params_df)
+}
+
+# Apply function to each stored list
+params_bn <- extract_params(stored_logistic_bn, "Bonney")
+params_hr <- extract_params(stored_logistic_hr, "Hoare")
+params_fx <- extract_params(stored_logistic_fx, "Fryxell")
+
+#set treatment as factor
+params_bn <- params_bn %>%
+  mutate(Treatment = factor(Treatment, levels = c("CTRL", "N", "P", "NP")))
+params_hr <- params_hr %>%
+  mutate(Treatment = factor(Treatment, levels = c("CTRL", "N", "P", "NP")))
+params_fx <- params_fx %>%
+  mutate(Treatment = factor(Treatment, levels = c("CTRL", "N", "P", "NP")))
+
+# Combine all extracted dataframes
+params_exp <- rbind(params_bn, params_hr, params_fx)
+
+# Print the final dataframe
+print(params_exp)
+
+```
+
+```{r format and save params}
+# Create a new dataframe with rounded values using tidyverse
+params_exp_1 <- params_exp %>%
+  mutate(across(c(mumax, mumax_se, mumax_p, K, K_se, K_p), ~ round(.x, 3)))
+
+# Save the new dataframe as a CSV file
+write.csv(params_exp_1, file = file.path(sub.directory.2.1.2.1.fp, "MDV-nutrient-limitation-soils-logistic-growth-parameters.csv"), row.names = FALSE)
+
+```
+
+```{r plot logistic mumax}
+# Custom fill color mappings for each dataset
+custom_fill <- list(
+  Bonney = c("CTRL" = "tan", "N" = "tan", "P" = "#01665E", "NP" = "#01665E"),
+  Hoare = c("CTRL" = "tan", "N" = "#01665E", "P" = "tan", "NP" = "#01665E"),
+  Fryxell = c("CTRL" = "tan", "N" = "tan", "P" = "#01665E", "NP" = "#01665E")
+)
+
+#define function
+plot_logistic_growth_rate <- function(params, basin, output_path, filter_treatments = NULL) {
+  
+  # Ensure Treatment is a factor with correct levels
+  params <- params %>%
+    mutate(Treatment = factor(Treatment, levels = c("CTRL", "N", "P", "NP")),
+           mumax = ifelse(mumax_sig == "ns", NA, mumax))  # Set "ns" values to NA for plotting
+
+  # Remove specified treatments if applicable
+  if (!is.null(filter_treatments)) {
+    params <- params %>% filter(!Treatment %in% filter_treatments)
+  }
+
+  # Create plot
+  p <- ggplot(params, aes(x = Treatment, y = mumax)) +
+    geom_point(aes(fill = Treatment), shape = 21, size = 6, alpha = 0.7, na.rm = TRUE) +
+    geom_errorbar(aes(ymin = mumax - mumax_se, ymax = mumax + mumax_se),
+                  width = 0.1, color = "black", na.rm = TRUE) +
+    scale_fill_manual(values = custom_fill[[basin]]) +  # Apply custom fill colors
+    theme_bw() +
+    labs(title = paste(basin),
+         x = "",
+         y = "Surface Cover (%) per day") +
+    theme(legend.position = "none",
+          axis.text.x = element_text(size = 16),
+          panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.y = element_blank()) +
+    coord_cartesian(ylim = c(0.0, 0.40))
+
+  # Add "ns" labels at y = 0.01 level
+  ns_data <- params[params$mumax_sig == "ns", ]
+  if (nrow(ns_data) > 0) {
+    p <- p + geom_text(data = ns_data, aes(x = Treatment, y = 0.01, label = "ns"),
+                       color = "black", size = 5, vjust = 1)
+  }
+
+  # Print the plot
+  print(p)
+
+  # Save the plot
+  ggsave(filename = paste0(output_path, "/", basin, "_logistic_growth_rate_mean.jpeg"), plot = p, device = "jpeg")
+  ggsave(filename = paste0(output_path, "/", basin, "_logistic_growth_rate_mean.pdf"), plot = p, device = "pdf")
+  ggsave(filename = paste0(output_path, "/", basin, "_logistic_growth_rate_mean.svg"), plot = p, device = "svg")
+
+  return(p)  # Return plot for use in combined figure
+}
+
+# Generate individual plots, filtering CTRL and P from Hoare
+p_bonney <- plot_logistic_growth_rate(params_bn, "Bonney", sub.directory.2.1.2.2.3.1.fp)
+p_hoare <- plot_logistic_growth_rate(params_hr, "Hoare", sub.directory.2.1.2.2.3.2.fp, filter_treatments = c("CTRL", "P"))
+p_fryxell <- plot_logistic_growth_rate(params_fx, "Fryxell", sub.directory.2.1.2.2.3.3.fp)
+
+```
+
+```{r combine logistic mumax}
+library(patchwork)  # For combining plots
+
+# Remove y-axis from Hoare and Fryxell plots
+p_hoare <- p_hoare + theme(axis.text.y = element_blank(), axis.title.y = element_blank(), axis.ticks.y = element_blank())
+p_fryxell <- p_fryxell + theme(axis.text.y = element_blank(), axis.title.y = element_blank(), axis.ticks.y = element_blank())
+
+# Arrange plots in one row with three columns
+combined_mumax <- p_bonney + p_hoare + p_fryxell + plot_layout(nrow = 1, ncol = 3)
+
+# Print combined plot
+print(combined_mumax)
+
+# Save the combined plot
+ggsave(filename = paste0(sub.directory.2.1.2.2.3.fp, "/combined_logistic_growth_rate.jpeg"), plot = combined_mumax, device = "jpeg", width = 12, height = 8.5)
+ggsave(filename = paste0(sub.directory.2.1.2.2.3.fp, "/combined_logistic_growth_rate.pdf"), plot = combined_mumax, device = "pdf", width = 12, height = 8.5)
+ggsave(filename = paste0(sub.directory.2.1.2.2.3.fp, "/combined_logistic_growth_rate.svg"), plot = combined_mumax, device = "svg", width = 12, height = 8.5)
+
+```
+
+```{r plot logistic K}
+#define function
+plot_logistic_carrying_capacity <- function(params, basin, output_path, filter_treatments = NULL) {
+  
+  # Ensure Treatment is a factor with correct levels
+  params <- params %>%
+    mutate(Treatment = factor(Treatment, levels = c("CTRL", "N", "P", "NP")),
+           K = ifelse(K_sig == "ns", NA, K))  # Set "ns" values to NA for plotting
+
+  # Remove specified treatments if applicable
+  if (!is.null(filter_treatments)) {
+    params <- params %>% filter(!Treatment %in% filter_treatments)
+  }
+
+  # Create plot
+  p <- ggplot(params, aes(x = Treatment, y = K)) +
+    geom_point(aes(fill = Treatment), shape = 21, size = 5, alpha = 0.7, na.rm = TRUE) +
+    #geom_point(size = 4, color = "steelblue", alpha = 0.7, na.rm = TRUE) +
+    geom_errorbar(aes(ymin = K - K_se, ymax = K + K_se),
+                  width = 0.1, color = "black", na.rm = TRUE) +
+    scale_fill_manual(values = custom_fill[[basin]]) +  # Apply custom fill colors
+    theme_bw() +
+    labs(title = paste(basin),
+         x = "",
+         y = "Surface Cover (%)") +
+    theme(legend.position = "none",
+          axis.title.y = element_text(size = 18), 
+          axis.title.x = element_text(size = 18),
+          axis.text.x = element_text(size = 16),
+          axis.text.y = element_text(size = 16),
+          panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.y = element_blank()) +
+    coord_cartesian(ylim = c(0.0, 100.0))
+
+  # Add "ns" labels at y = 0.01 level
+  ns_data <- params[params$K_sig == "ns", ]
+  if (nrow(ns_data) > 0) {
+    p <- p + geom_text(data = ns_data, aes(x = Treatment, y = 0.01, label = "ns"),
+                       color = "black", size = 5, vjust = 1)
+  }
+
+  # Print the plot
+  print(p)
+
+  # Save the plot
+  ggsave(filename = paste0(output_path, "/", basin, "_logistic_carrying_capacity_mean.jpeg"), plot = p, device = "jpeg")
+  ggsave(filename = paste0(output_path, "/", basin, "_logistic_carrying_capacity_mean.pdf"), plot = p, device = "pdf")
+  ggsave(filename = paste0(output_path, "/", basin, "_logistic_carrying_capacity_mean.svg"), plot = p, device = "svg")
+
+  return(p)  # Return plot for use in combined figure
+}
+
+# Generate individual plots, filtering CTRL and P from Hoare
+p_bonney <- plot_logistic_carrying_capacity(params_bn, "Bonney", sub.directory.2.1.2.2.3.1.fp)
+p_hoare <- plot_logistic_carrying_capacity(params_hr, "Hoare", sub.directory.2.1.2.2.3.2.fp, filter_treatments = c("CTRL", "P"))
+p_fryxell <- plot_logistic_carrying_capacity(params_fx, "Fryxell", sub.directory.2.1.2.2.3.3.fp)
+
+```
+
+```{r combine logistic K}
+library(patchwork)  # For combining plots
+
+# Remove y-axis from Hoare and Fryxell plots
+p_hoare <- p_hoare + theme(axis.text.y = element_blank(), axis.title.y = element_blank(), axis.ticks.y = element_blank())
+p_fryxell <- p_fryxell + theme(axis.text.y = element_blank(), axis.title.y = element_blank(), axis.ticks.y = element_blank())
+
+# Arrange plots in one row with three columns
+combined_K <- p_bonney + p_hoare + p_fryxell + plot_layout(nrow = 1, ncol = 3)
+
+# Print combined plot
+print(combined_K)
+
+# Save the combined plot
+ggsave(filename = paste0(sub.directory.2.1.2.2.3.fp, "/combined_logistic_carrying_capacity.jpeg"), plot = combined_K, device = "jpeg", width = 12, height = 8.5)
+ggsave(filename = paste0(sub.directory.2.1.2.2.3.fp, "/combined_logistic_carrying_capacity.pdf"), plot = combined_K, device = "pdf", width = 12, height = 8.5)
+ggsave(filename = paste0(sub.directory.2.1.2.2.3.fp, "/combined_logistic_carrying_capacity.svg"), plot = combined_K, device = "svg", width = 12, height = 8.5)
+
+```
+
+## Plot curves  
+```{r logistic model predictions}
+# Generate a sequence of days for smooth predictions
+new_days <- seq(min(df.b.1$days), max(df.b.1$days), length.out = 200)
+
+# Function to extract fitted parameters & generate smooth predictions for all treatments
+predict_logistic <- function(model_list, new_days, basin_name) {
+  model_data <- map_df(names(model_list), function(trt) {
+    if (basin_name == "Hoare" && trt %in% c("CTRL", "P")) {
+      return(NULL)  # Do not include predictions for Hoare treatments "CTRL" and "P"
+    }
+    parms <- model_list[[trt]]@fits[[trt]]@par  # Extract parameters for each treatment
+    trend_line <- grow_logistic(new_days, parms)  # Generate predicted values
+    data.frame(basin = basin_name, treatment = trt, trend_line = trend_line)
+  })
+  return(model_data)
+}
+
+# Create smooth predictions for each basin including treatments
+df_smooth_bn <- predict_logistic(stored_logistic_bn, new_days, "Bonney")
+df_smooth_hr <- predict_logistic(stored_logistic_hr, new_days, "Hoare")
+df_smooth_fx <- predict_logistic(stored_logistic_fx, new_days, "Fryxell")
+
+# Ensure correct column names
+df_smooth_bn <- df_smooth_bn %>% rename(days = trend_line.time, primary_cover = trend_line.y)
+df_smooth_hr <- df_smooth_hr %>% rename(days = trend_line.time, primary_cover = trend_line.y)
+df_smooth_fx <- df_smooth_fx %>% rename(days = trend_line.time, primary_cover = trend_line.y)
+
+```
+
+```{r plot logistic model growth curves}
+#format bn
+df.b.2 <- df.b.1 %>%
+    mutate(treatment = factor(treatment, levels = c("CTRL", "N", "P", "NP")))
+
+#format hr
+df.h.1 <- df.h %>%
+    mutate(treatment = factor(treatment, levels = c("CTRL", "N", "P", "NP")))
+
+#format fx
+df.f.1 <- df.f %>%
+    mutate(treatment = factor(treatment, levels = c("CTRL", "N", "P", "NP")))
+           
+# Custom fill color mappings for each dataset
+custom_fill <- list(
+  Bonney = c("CTRL" = "tan", "N" = "tan", "P" = "#01665E", "NP" = "#01665E"),
+  Hoare = c("CTRL" = "tan", "N" = "#01665E", "P" = "tan", "NP" = "#01665E"),
+  Fryxell = c("CTRL" = "tan", "N" = "#01665E", "P" = "#01665E", "NP" = "#01665E")
+)
+
+# Function to generate, print, and save logistic growth plots
+create_logistic_plot <- function(data, model_data, basin_name, file_paths) {
+  
+  # Set x-axis limits and breaks dynamically based on basin
+  x_limits <- if (basin_name == "Bonney") c(0, 71) else c(0, 71)
+  x_breaks <- if (basin_name == "Bonney") c(1, 35, 70) else c(1, 28, 63)
+
+  # Create ggplot object
+  plot <- ggplot(data, aes(x = days, y = primary_cover)) +
+    geom_point(aes(fill = treatment), 
+               size = 3, shape = 21, color = "black", alpha = 0.55) +
+    geom_line(data = model_data, aes(x = days, y = primary_cover, group = treatment), color = "black", size = 1) +
+    labs(title = paste(basin_name, "Basin"), x = "Days", y = "Surface Cover (%)") +
+    scale_x_continuous(limits = x_limits, breaks = x_breaks) +
+    scale_y_continuous(expand = c(0.0, 0.0), limits = c(0, 100), breaks = seq(0, 100, by = 20)) +
+    scale_fill_manual(values = custom_fill[[basin_name]]) + 
+    facet_wrap(~ factor(treatment, levels = c("CTRL", "N", "P", "NP")), nrow = 1) +
+    theme_bw() +
+    theme(plot.title = element_text(size = rel(1.8)),
+          axis.title.y = element_text(size = 18), 
+          axis.title.x = element_text(size = 18),
+          axis.text.x = element_text(size = 16),
+          axis.text.y = element_text(size = 16),
+          strip.text.x = element_text(size = 13),
+          axis.ticks.x.top = element_blank(),
+          axis.text.x.top = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          legend.position = "none")
+
+  # Print plot to console
+  print(plot)
+
+  # Save in different formats
+  ggsave(filename = paste0(file_paths, "/", basin_name, "_logistic_mod_ggplot.jpeg"), plot = plot, device = "jpeg")
+  ggsave(filename = paste0(file_paths, "/", basin_name, "_logistic_mod_ggplot.pdf"), plot = plot, device = "pdf")
+  ggsave(filename = paste0(file_paths, "/", basin_name, "_logistic_mod_ggplot.svg"), plot = plot, device = "svg")
+
+  return(plot)  # Return the ggplot object for further use
+}
+
+# Generate and print plots for each basin
+plot_bn <- create_logistic_plot(df.b.2, df_smooth_bn, "Bonney", sub.directory.2.1.2.2.3.1.fp)
+plot_hr <- create_logistic_plot(df.h.1, df_smooth_hr, "Hoare", sub.directory.2.1.2.2.3.2.fp)
+plot_fx <- create_logistic_plot(df.f.1, df_smooth_fx, "Fryxell", sub.directory.2.1.2.2.3.3.fp)
+
+```
+
+### Combine Plots for figure
+```{r combine plots}
+library(patchwork)
+
+# Adjust formatting for combined layout
+plot_bn.1 <- plot_bn + theme(axis.title.y = element_blank(), plot.title = element_text(size = rel(1.3)))
+plot_hr.1 <- plot_hr + theme(plot.title = element_text(size = rel(1.3)))
+plot_fx.1 <- plot_fx + theme(axis.title.y = element_blank(), plot.title = element_text(size = rel(1.3)))
+
+plot_bn.2 <- plot_bn.1 + theme(axis.title.x = element_blank())
+plot_hr.2 <- plot_hr.1 + theme(axis.title.x = element_blank())
+
+# Create a custom legend using ggplot
+legend_plot <- ggplot() +
+  geom_point(aes(x = 2.08, y = 1), shape = 21, size = 5, fill = "#01665E", color = "black", alpha = 0.55) +
+  geom_point(aes(x = 2.08, y = 0), shape = 21, size = 5, fill = "tan", color = "black", alpha = 0.55) +
+  annotate("text", x = 2.11, y = 1, label = "Significant effect", hjust = 0, size = 4.5) +
+  annotate("text", x = 2.11, y = 0, label = "Non-significant effect", hjust = 0, size = 4.5) +
+  xlim(0.8, 2.5) + ylim(-0.5, 1.5) +
+  theme_void()
+
+#combine all plots
+combined_curves <- (legend_plot / plot_bn.2 / plot_hr.2 / plot_fx.1) + 
+  plot_layout(heights = c(0.5, 3, 3, 3))  # Adjust the last item's height
+
+# Display the combined plot
+#print(combined_plot)
+
+# Combine plots into a single layout
+#combined_curves <- plot_bn.2 / plot_hr.2 / plot_fx.1  # Uses patchwork to stack vertically
+
+# Print the combined plot to the console
+print(combined_curves)
+
+# Define the file path and file name
+file_path <- sub.directory.2.1.2.2.3.fp
+file_name <- "MDV-nutrient-limitation-soils-combined-growth-trends"
+
+# Save the combined plot in different formats with specified dimensions
+ggsave(filename = paste0(file_path, "/", file_name, ".jpeg"), plot = combined_curves, device = "jpeg", width = 8.5, height = 11, dpi = 300)
+ggsave(filename = paste0(file_path, "/", file_name, ".pdf"), plot = combined_curves, device = "pdf", width = 8.5, height = 11)
+ggsave(filename = paste0(file_path, "/", file_name, ".svg"), plot = combined_curves, device = "svg", width = 8.5, height = 11)
+
+```
+
+## End of Script  

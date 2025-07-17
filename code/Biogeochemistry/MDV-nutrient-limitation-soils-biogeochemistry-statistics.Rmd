@@ -1,0 +1,2229 @@
+---
+title: "McMurdo Dry Valleys Nutrient Limitation"
+subtitle: "  \n Biogeochemical Data - Summary and Inferential Statistics"
+author: "Adam J. Solon"
+date: "`r Sys.Date()`"
+#output: html_document
+output: 
+  pdf_document:
+    toc: TRUE
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+    keep_md: true
+fontsize: 12pt
+#editor_options: 
+#  chunk_output_type: console
+---
+  
+# Script Summary  
+This script calculates summary and inferential statistics for biogeochemical data measured from sediments collected in Taylor Valley of the McMurdo Dry Valleys, Antarctica. 
+
+### Steps of this pipeline:  
+1.  Create and organize directories 
+2.  Load R packages 
+3.  Input files 
+4.  Format Files 
+5.  Summary Statistics 
+6.  Save Files 
+7.  Summary Plots 
+8.  Save Plots 
+
+```{r echo = FALSE, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+set.seed(391)
+
+```
+
+```{r, echo = FALSE, include = FALSE}
+# Change identifiers to your system and file naming. 
+user <- "F:"
+directory <- "/Projects"
+project <- "/CryoHoles/Studies"
+study <- "/Soils-Nutrient-Limitation-Growth_Solon-et-al"
+
+sub.directory.1 <- "/analyses"
+sub.directory.1.1 <- "/biogeochemistry"
+sub.directory.1.1.1 <- "/input"
+
+sub.directory.1.1.2 <- "/summary_inferential_statistics"
+sub.directory.1.1.2.1 <- "/models"
+sub.directory.1.1.2.1.1 <- "/field"
+sub.directory.1.1.2.1.1.1 <- "/summary"
+sub.directory.1.1.2.1.1.2 <- "/inferential"
+sub.directory.1.1.2.1.2 <- "/experiment"
+sub.directory.1.1.2.1.2.1 <- "/summary"
+sub.directory.1.1.2.1.2.2 <- "/inferential"
+sub.directory.1.1.2.2 <- "/plots"
+sub.directory.1.1.2.2.1 <- "/field"
+sub.directory.1.1.2.2.2 <- "/experiment"
+
+```
+
+### Set pathways and create directories  
+
+```{r set paths for pipeline}
+# First define the project and project directories. 
+
+# Create pathway for pipeline
+###################################################
+path.fp <- paste0(user, directory, project, study)
+if (!dir.exists(path.fp)) dir.create(path.fp)
+
+```
+
+```{r set paths for processed files}
+#sub.directory.1 data
+###################################################
+sub.directory.1.fp <- paste0(path.fp, sub.directory.1)
+if (!dir.exists(sub.directory.1.fp)) dir.create(sub.directory.1.fp)
+
+# Create sub-directory  biogeochemistry
+###################################################
+sub.directory.1.1.fp <- paste0(sub.directory.1.fp, sub.directory.1.1)
+if (!dir.exists(sub.directory.1.1.fp)) dir.create(sub.directory.1.1.fp)
+
+# Create sub-directory input
+###################################################
+sub.directory.1.1.1.fp <- paste0(sub.directory.1.1.fp, sub.directory.1.1.1)
+if (!dir.exists(sub.directory.1.1.1.fp)) dir.create(sub.directory.1.1.1.fp)
+
+```
+
+```{r set paths for analyses}
+# Create sub-directory sum stats
+###################################################
+sub.directory.1.1.2.fp <- paste0(sub.directory.1.1.fp, sub.directory.1.1.2)
+if (!dir.exists(sub.directory.1.1.2.fp)) dir.create(sub.directory.1.1.2.fp)
+
+# Create sub-directory stats
+###################################################
+sub.directory.1.1.2.1.fp <- paste0(sub.directory.1.1.2.fp, sub.directory.1.1.2.1)
+if (!dir.exists(sub.directory.1.1.2.1.fp)) dir.create(sub.directory.1.1.2.1.fp)
+
+# Create sub-directory field
+###################################################
+sub.directory.1.1.2.1.1.fp <- paste0(sub.directory.1.1.2.1.fp, sub.directory.1.1.2.1.1)
+if (!dir.exists(sub.directory.1.1.2.1.1.fp)) dir.create(sub.directory.1.1.2.1.1.fp)
+
+# Create sub-directory summary stats
+###################################################
+sub.directory.1.1.2.1.1.1.fp <- paste0(sub.directory.1.1.2.1.1.fp, sub.directory.1.1.2.1.1.1)
+if (!dir.exists(sub.directory.1.1.2.1.1.1.fp)) dir.create(sub.directory.1.1.2.1.1.1.fp)
+
+# Create sub-directory inferential stats
+###################################################
+sub.directory.1.1.2.1.1.2.fp <- paste0(sub.directory.1.1.2.1.1.fp, sub.directory.1.1.2.1.1.2)
+if (!dir.exists(sub.directory.1.1.2.1.1.2.fp)) dir.create(sub.directory.1.1.2.1.1.2.fp)
+
+# Create sub-directory experiment
+###################################################
+sub.directory.1.1.2.1.2.fp <- paste0(sub.directory.1.1.2.1.fp, sub.directory.1.1.2.1.2)
+if (!dir.exists(sub.directory.1.1.2.1.2.fp)) dir.create(sub.directory.1.1.2.1.2.fp)
+
+# Create sub-directory summary stats
+###################################################
+sub.directory.1.1.2.1.2.1.fp <- paste0(sub.directory.1.1.2.1.2.fp, sub.directory.1.1.2.1.2.1)
+if (!dir.exists(sub.directory.1.1.2.1.2.1.fp)) dir.create(sub.directory.1.1.2.1.2.1.fp)
+
+# Create sub-directory inferential stats
+###################################################
+sub.directory.1.1.2.1.2.2.fp <- paste0(sub.directory.1.1.2.1.2.fp, sub.directory.1.1.2.1.2.2)
+if (!dir.exists(sub.directory.1.1.2.1.2.2.fp)) dir.create(sub.directory.1.1.2.1.2.2.fp)
+
+# Create sub-directory plots 
+###################################################
+sub.directory.1.1.2.2.fp <- paste0(sub.directory.1.1.2.fp, sub.directory.1.1.2.2)
+if (!dir.exists(sub.directory.1.1.2.2.fp)) dir.create(sub.directory.1.1.2.2.fp)
+
+# Create sub-directory field
+###################################################
+sub.directory.1.1.2.2.1.fp <- paste0(sub.directory.1.1.2.2.fp, sub.directory.1.1.2.2.1)
+if (!dir.exists(sub.directory.1.1.2.2.1.fp)) dir.create(sub.directory.1.1.2.2.1.fp)
+
+# Create sub-directory experiment
+###################################################
+sub.directory.1.1.2.2.2.fp <- paste0(sub.directory.1.1.2.2.fp, sub.directory.1.1.2.2.2)
+if (!dir.exists(sub.directory.1.1.2.2.2.fp)) dir.create(sub.directory.1.1.2.2.2.fp)
+
+```
+
+### Load R packages  
+```{r Install and load packages, echo = FALSE, include = FALSE}
+# install.packages("knitr")
+# install.packages("kableExtra")
+# install.packages("tidyverse")
+# install.packages("dplyr")
+# install.packages("car")
+# install.packages("emmeans")
+# install.packages("MASS")
+# install.packages("lmtest")
+# install.packages("multcompView")
+# install.packages("cowplot")
+
+library(knitr); packageVersion("knitr")
+library(kableExtra); packageVersion("kableExtra")
+library(tidyverse); packageVersion("tidyverse")
+library(dplyr); packageVersion("dplyr")
+library(car); packageVersion("car")
+library(emmeans); packageVersion("emmeans")
+library(MASS); packageVersion("MASS")
+library(lmtest); packageVersion("lmtest")
+library(multcompView); packageVersion("multcompView")
+library(cowplot); packageVersion("cowplot")
+library(patchwork); packageVersion("patchwork")
+
+```
+
+* r version: `r getRversion()`
+* RStudio version: `r rstudioapi::versionInfo()$version`
+* r packages:  
+  
+  knitr, `r packageVersion("knitr")`  
+  kableExtra, `r packageVersion("kableExtra")`  
+  tidyverse, `r packageVersion("tidyverse")`  
+  dplyr, `r packageVersion("dplyr")`   
+  car, `r packageVersion("car")` 
+  emmeans, `r packageVersion("emmeans")` 
+  MASS, `r packageVersion("MASS")` 
+  lmtest, `r packageVersion("lmtest")` 
+  multcompView, `r packageVersion("multcompView")`   
+  cowplot, `r packageVersion("cowplot")` 
+  patchwork, `r packageVersion("patchwork")` 
+  
+### Input Files
+Required input files:   
+  
+1.  The 'mapping file' w/ physical, geographic, chemical, and biological data for each sample  
+ 
+Input files and re-format for use in pipeline  
+
+```{r input data}
+# input data files
+# TOC and TN data
+File.1.fp <- paste0(sub.directory.1.1.1.fp, "/df.cn.1.csv") 
+# TP and TOP
+File.2.fp <- paste0(sub.directory.1.1.1.fp, "/df.p.1.csv") 
+#map file
+mappingFile.fp <- paste0(sub.directory.1.1.1.fp, "/m.1.csv") 
+
+#input data
+df.cn.1 <- read.csv(File.1.fp, header = T)
+df.p.1 <- read.csv(File.2.fp, header = T)
+m.1 <- read.csv(mappingFile.fp, header = T)
+  
+```
+
+### Format Files
+```{r format 1}
+#set row names as Sample IDs
+rownames(df.cn.1) <- df.cn.1$SampleID
+rownames(df.p.1) <- df.p.1$SampleID
+rownames(m.1) <- m.1$SampleID
+
+#It is unclear whether the following samples from Burkins et al. (2001) are in the Fryxell drainage basin or at the very end of the valley that drains into the McMurdo Sound, therefore they will be removed from further analysis
+# Filter out rows with "Burkins" and "Commonwealth"
+df.cn.1 <- df.cn.1 %>% 
+  filter(!(Study == "Burkins" & Location == "Commonwealth"))
+
+#remove C/N values
+df.cn.1["COH019a", "C_to_N"] <- NA
+
+# Modify Location column to remove everything after "_"
+df.p.1 <- df.p.1 %>%
+  mutate(Location = sub("_.*", "", Location))  # Use regex to remove characters after "_"
+
+#relabel values in column study
+m.1 <- m.1 %>%
+  mutate(Study = ifelse(study == "two", "Solon", study))
+
+# Rename columns in m.1
+m.2 <- m.1 %>%
+  rename(Location = location)
+
+#remove any samples that were lost during experiment or any blanks that were not removed earlier
+m.2 <- m.2 %>% 
+  filter(!is.na(treatment), treatment != "blank")
+
+```
+
+```{r format 2}
+# Define location-to-geog mapping
+location_mapping <- c(
+  "Bonney" = "Interior",
+  "Taylor" = "Interior",
+  "Hoare" = "Intermediate",
+  "Canada" = "Intermediate",
+  "Fryxell" = "Coastal",
+  "Commonwealth" = "Coastal"
+)
+
+# List of data frames to process
+dataframes_to_process <- list(df.cn.1, df.p.1, m.2)
+
+# Iterate through each data frame and add the 'geog' column
+dataframes_processed <- lapply(dataframes_to_process, function(df) {
+  df <- df %>%
+    mutate(geog = location_mapping[Location]) %>%
+     mutate(geog = factor(geog, levels = c("Interior", "Intermediate", "Coastal")))
+  return(df)
+})
+
+# Assign processed data frames back to original names
+df.cn.1 <- dataframes_processed[[1]]
+df.p.1 <- dataframes_processed[[2]]
+m.2 <- dataframes_processed[[3]]
+
+```
+
+```{r format 3}
+# Select only 'SampleID' and 'treatment' from m.1
+treatment_data <- m.2 %>% dplyr::select(SampleID, treatment)
+
+# Function to merge treatment data based on partial SampleID match
+merge_treatment_partial <- function(df, treatment_data) {
+  df <- df %>% mutate(treatment = NA)  # Initialize treatment column
+
+  for (i in seq_len(nrow(treatment_data))) {
+    treatment_sample <- treatment_data$SampleID[i]
+    treatment_value <- treatment_data$treatment[i]
+
+    # Assign treatment based on partial match
+    df <- df %>%
+      mutate(treatment = ifelse(str_detect(SampleID, paste0("^", treatment_sample)), treatment_value, treatment))
+  }
+
+  return(df)
+}
+
+# Apply function to merge treatment data with df.cn.1 and df.p.1
+df.cn.2 <- merge_treatment_partial(df.cn.1, treatment_data)
+df.p.2 <- merge_treatment_partial(df.p.1, treatment_data)
+
+#remove sample BNM_03 that was lost during experiment
+df.cn.2 <- df.cn.2 %>%
+  filter(SampleID != "BNM_03")
+
+```
+
+# Summary Statistics  
+## Field Observations  
+```{r sum stats location}
+# Define the list of dataframes to iterate through
+dataframes_to_process <- list(
+  df.cn.2 = df.cn.2,
+  df.p.2 = df.p.2,
+  m.2 = m.2
+)
+
+# Define the variables of interest
+selected_vars <- c("umol.C_g.soil", "umol.N_g.soil", "C_to_N", 
+                   "umol.TP_g.soil", "umol.TIP_g.soil", "umol.TOP_g.soil", "ngDNA_per_g_soil")
+
+# Initialize lists to store summary statistics
+summary_by_study_location <- list()
+
+# Iterate through each dataframe
+for (df_name in names(dataframes_to_process)) {
+  df <- dataframes_to_process[[df_name]]  # Retrieve dataframe
+
+  # Ensure the dataframe contains required columns
+  if (!("Study" %in% colnames(df) && "Location" %in% colnames(df) && "treatment" %in% colnames(df))) {
+    print(paste("Skipping", df_name, "as it lacks required columns"))
+    next
+  }
+
+  print(paste("Processing summary statistics for", df_name))
+
+  # Filter dataframe to remove rows where Study or Location are missing
+  df_filtered_location <- df %>%
+    filter(!is.na(Study), !is.na(Location))
+
+  # Further subset the data by keeping only rows where treatment is "bulk" or NA
+  df_filtered <- df_filtered_location %>%
+    filter(is.na(treatment) | treatment == "bulk")
+
+  # Initialize an empty list for storing summary results for this dataframe
+  summary_results_location <- list()
+
+  for (var in selected_vars) {
+    if (var %in% colnames(df_filtered)) {
+      stats <- df_filtered %>%
+        group_by(Study, Location) %>%
+        summarise(
+          n = n(),
+          mean = mean(.data[[var]], na.rm = TRUE),
+          se = sd(.data[[var]], na.rm = TRUE) / sqrt(n()),
+          lowCI = mean(.data[[var]], na.rm = TRUE) - 1.96 * sd(.data[[var]], na.rm = TRUE) / sqrt(n()),
+          uprCI = mean(.data[[var]], na.rm = TRUE) + 1.96 * sd(.data[[var]], na.rm = TRUE) / sqrt(n()),
+          .groups = "drop"
+        ) %>%
+        mutate(variable = var, dataframe = df_name)
+
+      # Store results
+      summary_results_location[[var]] <- stats
+    }
+  }
+
+  # Ensure results are stored correctly in summary_by_study_location
+  summary_by_study_location[[df_name]] <- summary_results_location
+
+  # **Fix Printing to Correctly Display Results**
+  for (var in names(summary_results_location)) {
+    print(paste("Summary statistics for", var, "in", df_name))
+    print(summary_results_location[[var]])  # Corrected reference
+  }
+}
+
+```
+
+```{r save files}
+# Define the file path for saving CSV files
+save_directory <- sub.directory.1.1.2.1.1.1.fp
+
+# Save summary statistics grouped by Study & Location
+for (df_name in names(summary_by_study_location)) {
+  for (var in names(summary_by_study_location[[df_name]])) {
+    file_path <- paste0(save_directory, "/MDV-soils-nutrient-limitation-Field-", var, "_summary_stats.csv")
+
+    write.csv(summary_by_study_location[[df_name]][[var]], file = file_path, row.names = FALSE)
+
+  }
+}
+
+```
+
+### C:N:P Stoichiometry
+```{r create cnp}
+# Subset mean(se) values for each variable
+c.stoi <- as.data.frame(summary_by_study_location$df.cn.2$umol.C_g.soil) %>%
+  dplyr::select(Study, Location, mean, se) %>%
+  rename("toc_mean" = mean, "c_se" = se)
+
+n.stoi <- as.data.frame(summary_by_study_location$df.cn.2$umol.N_g.soil) %>%
+  dplyr::select(Study, Location, mean, se) %>%
+  rename("tn_mean" = mean, "n_se" = se)
+
+p.stoi <- as.data.frame(summary_by_study_location$df.p.2$umol.TOP_g.soil) %>%
+  dplyr::select(Study, Location, mean, se) %>%
+  rename("top_mean" = mean, "p_se" = se)
+
+# Clean up Location column in p.stoi
+p.stoi <- p.stoi %>%
+  mutate(Location = sub("_.*", "", Location))  # Remove "_" and everything after
+
+# Merge all dataframes by Study and Location, keeping only matching rows
+df.cnp <- c.stoi %>%
+  inner_join(n.stoi, by = c("Study", "Location")) %>%
+  inner_join(p.stoi, by = c("Study", "Location"))
+
+# Add C:N:P stoichiometry calculations
+df.cnp <- df.cnp %>%
+  mutate(CNP_values = paste0(round(toc_mean, 2), ":", round(tn_mean, 2), ":", round(top_mean, 2)))
+
+# View the cleaned dataframe
+print(df.cnp)
+
+```
+
+```{r format cnp}
+# Ensure top_mean for Taylor is set to 0 if negative
+df.cnp.1 <- df.cnp %>%
+  mutate(top_mean = ifelse(Location == "Taylor" & top_mean < 0, 0, top_mean))
+
+# Calculate ratios with appropriate rounding
+df.cnp.1 <- df.cnp.1 %>%
+  mutate(
+    CN_ratio = paste0(round(toc_mean / tn_mean)),  
+    CP_ratio = ifelse(Location == "Taylor", paste0(round(toc_mean), ":0"), round(toc_mean / top_mean)),  
+    NP_ratio = ifelse(Location == "Taylor", paste0(round(tn_mean), ":0"), signif(tn_mean / top_mean, 1)),
+    CNP_ratio = ifelse(Location == "Taylor", paste0(round(toc_mean), ":", round(tn_mean), ":0"), paste0(CP_ratio, ":", NP_ratio, ":1"))
+  )
+
+# View the transformed dataframe
+print(df.cnp.1)
+
+```
+
+```{r create cnp ratio}
+#library(readr)  # Use readr for better CSV handling
+
+# Ensure top_mean for Taylor is set to 0 if negative
+df.cnp.1 <- df.cnp %>%
+  mutate(top_mean = ifelse(Location == "Taylor" & top_mean < 0, 0, top_mean))
+
+# Calculate ratios with appropriate rounding
+df.cnp.1 <- df.cnp.1 %>%
+  mutate(
+    CN_ratio = paste0(round(toc_mean / tn_mean)),    
+    CP_ratio = ifelse(Location == "Taylor", paste0("'", round(toc_mean), ":0"), round(toc_mean / top_mean)),  
+    NP_ratio = ifelse(Location == "Taylor", paste0("'", round(tn_mean), ":0"), signif(tn_mean / top_mean, 1)),
+    CNP_ratio = ifelse(Location == "Taylor", paste0("'", round(toc_mean), ":", round(tn_mean), ":0"), paste0("'", CP_ratio, ":", NP_ratio, ":1"))
+)
+
+```
+
+```{r save cnp}
+# Save dataframe as CSV while preserving text formatting
+file_path <- file.path(sub.directory.1.1.2.1.1.1.fp, "MDV-soils-nutrient-limitation-Field_CNP_ratios.csv")
+write_csv(df.cnp.1, file_path)
+
+```
+
+## Inferential Stats
+### Bulk Soils  
+```{r aov models - field obs}
+# Define datasets and response variables
+datasets.b.1 <- list(df.cn.2 = c("umol.C_g.soil", "umol.N_g.soil", "C_to_N"),
+                 df.p.2  = c("umol.TP_g.soil", "umol.TIP_g.soil", "umol.TOP_g.soil"))
+
+# Initialize lists with "_fld" suffix to prevent overwriting
+no_fit_models_fld_b1 <- list()
+aov_models_meets_assumptions_fld_b1 <- list()
+aov_models_violates_assumptions_fld_b1 <- list()
+emmeans_results_aov_fld_b1 <- list()
+
+# Iterate through datasets
+for (df_name in names(datasets.b.1)) {
+  df <- get(df_name)
+  response_vars <- datasets.b.1[[df_name]]
+
+  for (response_var in response_vars) {
+    df_subset <- df %>%
+      filter(Study == "Solon") %>%  # Retain only bulk samples from this study
+      filter(treatment %in% c(NA, "bulk") & !is.na(.data[[response_var]])) #%>%
+      #mutate(Study_Location = paste(Study, Location, sep = "_"))
+
+    if (nrow(df_subset) == 0) {
+      print(paste("Skipping", df_name, response_var, "due to missing Study-Location data"))
+      next
+    }
+
+    model <- aov(reformulate("Location", response = response_var), data = df_subset)
+    model_summary <- summary(model)
+    anova_p <- unlist(model_summary[[1]]["Pr(>F)"])[1]
+
+    if (!is.numeric(anova_p) || is.na(anova_p) || anova_p > 0.05) {
+      no_fit_models_fld_b1[[paste(df_name, response_var, sep = "_")]] <- model_summary
+
+      # Save output for non-significant models
+      writeLines(capture.output(print(model_summary)), 
+                 file.path(sub.directory.1.1.2.1.1.2.fp, paste0("Bulk_", response_var, "_ANOVA_NO_fit.txt")))
+
+      print(paste(df_name, response_var, "- No model fit"))
+      next
+    }
+
+    # Assumptions testing
+    shapiro_test <- shapiro.test(residuals(model))$p.value
+    levene_test <- leveneTest(residuals(model) ~ Location, data = df_subset)$`Pr(>F)`[1]
+
+    assumptions_output <- c(
+      paste("Shapiro-Wilk normality test p-value:", round(shapiro_test, 5)),
+      paste("Levene test for homogeneity p-value:", round(levene_test, 5))
+    )
+
+    # Define output file name
+    if (shapiro_test > 0.05 & levene_test > 0.05) {
+      output_filename <- paste0("Bulk_", response_var, "_ANOVA_meets_assumptions.txt")
+      print(paste(df_name, response_var, "- Model fit and met assumptions, results saved"))
+    } else {
+      output_filename <- paste0("Bulk_", response_var, "_ANOVA_violates_assumptions.txt")
+      print(paste(df_name, response_var, "- Model fit but violated assumptions, results saved"))
+    }
+
+    # Save ANOVA model + assumption tests in the same file
+    writeLines(c(capture.output(print(model_summary)), assumptions_output), 
+               file.path(sub.directory.1.1.2.1.1.2.fp, output_filename))
+
+    if (shapiro_test > 0.05 & levene_test > 0.05) {
+      em_model <- emmeans(model, pairwise ~ Location, adjust = "Tukey")
+      emmeans_results_aov_fld_b1[[paste(df_name, response_var, sep = "_")]] <- em_model
+
+      # Save emmeans output separately
+      em_output_aov <- capture.output(print(em_model))
+      writeLines(em_output_aov, 
+                 file.path(sub.directory.1.1.2.1.1.2.fp, paste0("Bulk_", response_var, "_ANOVA_emmeans.txt")))
+
+      aov_models_meets_assumptions_fld_b1[[paste(df_name, response_var, sep = "_")]] <- model_summary
+    } else {
+      aov_models_violates_assumptions_fld_b1[[paste(df_name, response_var, sep = "_")]] <- df_subset
+    }
+  }
+}
+
+```
+
+```{r rob reg models - field obs}
+# Define datasets and corresponding response variables
+datasets.b.2 <- list(df.cn.2 = c("umol.N_g.soil"))
+
+# Initialize lists with "_fld" suffix to prevent overwriting
+robust_regression_models_fld_b2 <- list()
+emmeans_results_robust_fld_b2 <- list()
+
+# Define McFadden's Pseudo R² function
+pseudo_r2 <- function(model_full, model_null) {
+  1 - (logLik(model_full) / logLik(model_null))
+}
+
+# Iterate through datasets and response variables
+for (df_name in names(datasets.b.2)) {
+  df <- get(df_name)
+  response_vars <- datasets.b.2[[df_name]]
+
+  for (response_var in response_vars) {
+    df_subset_clean <- df %>%
+      filter(Study == "Solon") %>%  # Retain only bulk samples from this study
+      filter(treatment %in% c(NA, "bulk") & !is.na(.data[[response_var]]))
+
+    if (nrow(df_subset_clean) == 0) {
+      print(paste("Skipping", df_name, response_var, "- No valid data after filtering"))
+      next
+    }
+
+    # Run Robust Regression
+    model_robust <- rlm(as.formula(paste(response_var, "~ Location")), data = df_subset_clean)
+    robust_regression_models_fld_b2[[paste(df_name, response_var, sep = "_")]] <- model_robust
+
+    # Compute McFadden's Pseudo R²
+    model_null <- rlm(as.formula(paste(response_var, "~ 1")), data = df_subset_clean)
+    r2_value <- pseudo_r2(model_robust, model_null)
+
+    # Perform likelihood ratio test
+    lr_test <- lrtest(model_null, model_robust)
+
+    # Perform post-hoc analysis with emmeans
+    em_model_robust <- emmeans(model_robust, pairwise ~ Location, adjust = "Tukey")
+    emmeans_results_robust_fld_b2[[paste(df_name, response_var, sep = "_")]] <- em_model_robust
+
+    # Capture outputs for robust regression, McFadden's R², and likelihood ratio test
+    robust_output <- c(
+      capture.output(print(summary(model_robust))),
+      paste("McFadden's Pseudo R²:", round(r2_value, 3)),
+      capture.output(print(lr_test))
+    )
+
+    # Save all outputs in a single file
+    writeLines(robust_output, 
+               file.path(sub.directory.1.1.2.1.1.2.fp, paste0("Bulk_", response_var, "_robust_regression.txt")))
+
+    # Save emmeans output separately
+    writeLines(capture.output(print(em_model_robust)), 
+               file.path(sub.directory.1.1.2.1.1.2.fp, paste0("Bulk_", response_var, "_robust_emmeans.txt")))
+
+    print(paste(df_name, response_var, "- Robust Regression model fit, results saved"))
+  }
+}
+
+```
+
+### Prior Studies Comparisons  
+```{r aov models - prior studies}
+# Define datasets and response variables
+datasets.ps.1 <- list(df.cn.2 = c("umol.C_g.soil", "umol.N_g.soil", "C_to_N"),
+                 df.p.2  = c("umol.TP_g.soil", "umol.TIP_g.soil", "umol.TOP_g.soil"))
+
+# Initialize lists with "_fld" suffix to prevent overwriting
+no_fit_models_fld_ps <- list()
+aov_models_meets_assumptions_fld_ps <- list()
+aov_models_violates_assumptions_fld_ps <- list()
+emmeans_results_aov_fld_ps <- list()
+
+# Iterate through datasets
+for (df_name in names(datasets.ps.1)) {
+  df <- get(df_name)
+  response_vars <- datasets.ps.1[[df_name]]
+
+  for (response_var in response_vars) {
+    df_subset <- df %>%
+      filter(treatment %in% c(NA, "bulk") & !is.na(.data[[response_var]])) %>%
+      mutate(Study_Location = paste(Study, Location, sep = "_"))
+
+    if (nrow(df_subset) == 0) {
+      print(paste("Skipping", df_name, response_var, "due to missing Study-Location data"))
+      next
+    }
+
+    model <- aov(reformulate("Study_Location", response = response_var), data = df_subset)
+    model_summary <- summary(model)
+    anova_p <- unlist(model_summary[[1]]["Pr(>F)"])[1]
+
+    if (!is.numeric(anova_p) || is.na(anova_p) || anova_p > 0.05) {
+      no_fit_models_fld_ps[[paste(df_name, response_var, sep = "_")]] <- model_summary
+
+      # Save output for non-significant models
+      writeLines(capture.output(print(model_summary)), 
+                 file.path(sub.directory.1.1.2.1.1.2.fp, paste0(response_var, "_ANOVA_NO_fit.txt")))
+
+      print(paste(df_name, response_var, "- No model fit"))
+      next
+    }
+
+    # Assumptions testing
+    shapiro_test <- shapiro.test(residuals(model))$p.value
+    levene_test <- leveneTest(residuals(model) ~ Study_Location, data = df_subset)$`Pr(>F)`[1]
+
+    assumptions_output <- c(
+      paste("Shapiro-Wilk normality test p-value:", round(shapiro_test, 5)),
+      paste("Levene test for homogeneity p-value:", round(levene_test, 5))
+    )
+
+    # Define output file name
+    if (shapiro_test > 0.05 & levene_test > 0.05) {
+      output_filename <- paste0(response_var, "_ANOVA_meets_assumptions.txt")
+      print(paste(df_name, response_var, "- Model fit and met assumptions, results saved"))
+    } else {
+      output_filename <- paste0(response_var, "_ANOVA_violates_assumptions.txt")
+      print(paste(df_name, response_var, "- Model fit but violated assumptions, results saved"))
+    }
+
+    # Save ANOVA model + assumption tests in the same file
+    writeLines(c(capture.output(print(model_summary)), assumptions_output), 
+               file.path(sub.directory.1.1.2.1.1.2.fp, output_filename))
+
+    if (shapiro_test > 0.05 & levene_test > 0.05) {
+      em_model <- emmeans(model, pairwise ~ Study_Location, adjust = "Tukey")
+      emmeans_results_aov_fld_ps[[paste(df_name, response_var, sep = "_")]] <- em_model
+
+      # Save emmeans output separately
+      em_output_aov <- capture.output(print(em_model))
+      writeLines(em_output_aov, 
+                 file.path(sub.directory.1.1.2.1.1.2.fp, paste0(response_var, "_ANOVA_emmeans.txt")))
+
+      aov_models_meets_assumptions_fld_ps[[paste(df_name, response_var, sep = "_")]] <- model_summary
+    } else {
+      aov_models_violates_assumptions_fld_ps[[paste(df_name, response_var, sep = "_")]] <- df_subset
+    }
+  }
+}
+
+```
+
+```{r rob reg models - field obs}
+# Define datasets and corresponding response variables
+datasets.ps.2 <- list(df.cn.2 = c("umol.C_g.soil", "umol.N_g.soil", "C_to_N"),
+                 df.p.2  = c("umol.TP_g.soil"))
+
+# Initialize lists with "_fld" suffix to prevent overwriting
+robust_regression_models_fld_ps <- list()
+emmeans_results_robust_fld_ps <- list()
+
+# Define McFadden's Pseudo R² function
+pseudo_r2 <- function(model_full, model_null) {
+  1 - (logLik(model_full) / logLik(model_null))
+}
+
+# Iterate through datasets and response variables
+for (df_name in names(datasets.ps.2)) {
+  df <- get(df_name)
+  response_vars <- datasets.ps.2[[df_name]]
+
+  for (response_var in response_vars) {
+    df_subset_clean <- df %>%
+      filter(treatment %in% c(NA, "bulk") & !is.na(.data[[response_var]])) %>%
+      mutate(Study_Location = paste(Study, Location, sep = "_"))  # Create Study-Location variable
+
+    if (nrow(df_subset_clean) == 0) {
+      print(paste("Skipping", df_name, response_var, "- No valid data after filtering"))
+      next
+    }
+
+    # Run Robust Regression
+    model_robust <- rlm(as.formula(paste(response_var, "~ Study_Location")), data = df_subset_clean)
+    robust_regression_models_fld_ps[[paste(df_name, response_var, sep = "_")]] <- model_robust
+
+    # Compute McFadden's Pseudo R²
+    model_null <- rlm(as.formula(paste(response_var, "~ 1")), data = df_subset_clean)
+    r2_value <- pseudo_r2(model_robust, model_null)
+
+    # Perform likelihood ratio test
+    lr_test <- lrtest(model_null, model_robust)
+
+    # Perform post-hoc analysis with emmeans
+    em_model_robust <- emmeans(model_robust, pairwise ~ Study_Location, adjust = "Tukey")
+    emmeans_results_robust_fld_ps[[paste(df_name, response_var, sep = "_")]] <- em_model_robust
+
+    # Capture outputs for robust regression, McFadden's R², and likelihood ratio test
+    robust_output <- c(
+      capture.output(print(summary(model_robust))),
+      paste("McFadden's Pseudo R²:", round(r2_value, 3)),
+      capture.output(print(lr_test))
+    )
+
+    # Save all outputs in a single file
+    writeLines(robust_output, 
+               file.path(sub.directory.1.1.2.1.1.2.fp, paste0(response_var, "_robust_regression.txt")))
+
+    # Save emmeans output separately
+    writeLines(capture.output(print(em_model_robust)), 
+               file.path(sub.directory.1.1.2.1.1.2.fp, paste0(response_var, "_robust_emmeans.txt")))
+
+    print(paste(df_name, response_var, "- Robust Regression model fit, results saved"))
+  }
+}
+
+```
+
+```{r sig groups - fld}
+# Initialize storage for significance groupings
+sig_groups_emmeans_fld <- list()
+
+# Define study-location order (modify as needed)
+study_location_order <- c("Burkins_Bonney", "Solon_Bonney", "Schmidt_Taylor", 
+                          "Burkins_Hoare", "Solon_Hoare", "Schmidt_Canada", 
+                          "Burkins_Fryxell", "Solon_Fryxell", "Schmidt_Commonwealth")
+
+# Combine the two model lists into one
+model_lists <- list(
+  emmeans_results_aov_fld_ps,
+  emmeans_results_robust_fld_ps
+)
+
+# Loop through models across all lists
+for (model_list in model_lists) {
+  for (key in names(model_list)) {
+    
+    em_model <- model_list[[key]]
+
+    # Ensure emmeans model results are valid
+    if (!is.null(em_model) && inherits(em_model$contrasts, "emmGrid")) {
+      
+      # Extract pairwise contrasts
+      contrast_results <- summary(em_model$contrasts)
+      contrast_df <- as.data.frame(contrast_results)
+
+      # Ensure correct formatting for Study_Location pairs
+      contrast_df$contrast <- gsub(" - ", "-", contrast_df$contrast)
+
+      # Extract Study_Location pairs from contrasts
+      contrast_df <- contrast_df %>%
+        mutate(Study_Location = sub("-.*", "", contrast))  # Extract first Study_Location from contrast
+
+      # Filter for Study_Location present in predefined order
+      contrast_df <- contrast_df[contrast_df$Study_Location %in% study_location_order, ]
+
+      # Order p-values so Study_Location follows predefined order
+      contrast_df <- contrast_df[order(match(contrast_df$Study_Location, study_location_order)), ]
+
+      # Convert p-values into a named vector for multcompView
+      p.val.vec <- setNames(contrast_df$p.value, contrast_df$contrast)
+
+      # Ensure no NA values remain
+      p.val.vec <- p.val.vec[!is.na(p.val.vec)]  
+
+      # Generate significance groupings using multcompView
+      sig_groups <- multcompLetters(p.val.vec)$Letters
+
+      # Convert results to a dataframe
+      sig_grp_df <- data.frame(
+        Study_Location = names(sig_groups),
+        sig_grps = as.character(sig_groups)
+      )
+
+      # Ensure final ordering of Study_Location before storing
+      sig_grp_df$Study_Location <- factor(sig_grp_df$Study_Location, levels = study_location_order, ordered = TRUE)
+      sig_grp_df <- sig_grp_df[order(match(sig_grp_df$Study_Location, study_location_order)), ]
+
+      # Debug: Print before storing
+      print(paste("Storing significance group for:", key))
+      print(sig_grp_df)
+
+      # Store updated significance groupings
+      sig_groups_emmeans_fld[[key]] <- sig_grp_df
+    } else {
+      print(paste("Skipping:", key, "due to invalid model"))
+      sig_groups_emmeans_fld[[key]] <- NULL
+    }
+  }
+}
+
+# Print final stored significance groups
+print("Significance groups from stored emmeans results:")
+print(sig_groups_emmeans_fld)
+
+```
+
+```{r emmeans}
+# Initialize storage for significance groupings
+sig_groups_emmeans_fld <- list()
+
+# Define study-location order (modify as needed)
+study_location_order <- c("Burkins_Bonney", "Solon_Bonney", "Schmidt_Taylor", 
+                          "Burkins_Hoare", "Solon_Hoare", "Schmidt_Canada", 
+                          "Burkins_Fryxell", "Solon_Fryxell", "Schmidt_Commonwealth")
+
+# Combine the two model lists into one
+model_lists <- list(
+  emmeans_results_aov_fld_ps,
+  emmeans_results_robust_fld_ps
+)
+
+# Loop through models across all lists
+for (model_list in model_lists) {
+  for (key in names(model_list)) {
+    
+    em_model <- model_list[[key]]
+
+    # Ensure emmeans model results are valid
+    if (!is.null(em_model) && inherits(em_model$contrasts, "emmGrid")) {
+      
+      # Extract pairwise contrasts
+      contrast_results <- summary(em_model$contrasts)
+      contrast_df <- as.data.frame(contrast_results)
+
+      # Ensure correct formatting for Study_Location pairs
+      contrast_df$contrast <- gsub(" - ", "-", contrast_df$contrast)
+
+      # Extract Study_Location pairs from contrasts
+      contrast_df <- contrast_df %>%
+        mutate(Study_Location = sub("-.*", "", contrast))  # Extract first Study_Location from contrast
+
+      # Filter for Study_Location present in predefined order
+      contrast_df <- contrast_df[contrast_df$Study_Location %in% study_location_order, ]
+
+      # Order p-values so Study_Location follows predefined order
+      contrast_df <- contrast_df[order(match(contrast_df$Study_Location, study_location_order)), ]
+
+      # Convert p-values into a named vector for multcompView
+      p.val.vec <- setNames(contrast_df$p.value, contrast_df$contrast)
+
+      # Ensure no NA values remain
+      p.val.vec <- p.val.vec[!is.na(p.val.vec)]  
+
+      # Generate significance groupings using multcompView
+      sig_groups <- multcompLetters(p.val.vec)$Letters
+
+      # Convert results to a dataframe
+      sig_grp_df <- data.frame(
+        Study_Location = names(sig_groups),
+        sig_grps = as.character(sig_groups)
+      )
+
+      # Merge with original datasets to add Study column
+      original_data <- if (grepl("df.cn.2", key)) df.cn.2 else if (grepl("df.p.2", key)) df.p.2 else NULL
+      
+      if (!is.null(original_data)) {
+        study_mapping <- original_data %>% 
+          mutate(Study_Location = paste(Study, Location, sep = "_")) %>%
+          dplyr::select(geog, Study, Study_Location) %>% 
+          distinct()
+        
+        sig_grp_df <- sig_grp_df %>%
+          left_join(study_mapping, by = "Study_Location")
+      }
+
+      # Ensure final ordering of Study_Location before storing
+      sig_grp_df$Study_Location <- factor(sig_grp_df$Study_Location, levels = study_location_order, ordered = TRUE)
+      sig_grp_df <- sig_grp_df[order(match(sig_grp_df$Study_Location, study_location_order)), ]
+
+      # Debug: Print before storing
+      print(paste("Storing significance group for:", key))
+      print(sig_grp_df)
+
+      # Store updated significance groupings
+      sig_groups_emmeans_fld[[key]] <- sig_grp_df
+    } else {
+      print(paste("Skipping:", key, "due to invalid model"))
+      sig_groups_emmeans_fld[[key]] <- NULL
+    }
+  }
+}
+
+# Print final stored significance groups
+print("Significance groups from stored emmeans results:")
+print(sig_groups_emmeans_fld)
+
+```
+
+## Plots  
+```{r define objects}
+# Define expression mapping for y-axis labels
+y_axis_labels <- list(
+  "umol.C_g.soil" = expression(paste("TOC (", mu, "mol g"^"-1", "soil)")),
+  "umol.N_g.soil" = expression(paste("TN (", mu, "mol g"^"-1", "soil)")),
+  "C_to_N" = "C:N",
+  "umol.TP_g.soil" = expression(paste("TP (", mu, "mol g"^"-1", "soil)")),
+  "umol.TIP_g.soil" = expression(paste("TIP (", mu, "mol g"^"-1", "soil)")),
+  "umol.TOP_g.soil" = expression(paste("TOP (", mu, "mol g"^"-1", "soil)")),
+  "ngDNA_per_g_soil" = expression(paste("DNA (", "ng g"^"-1", " soil)"))
+)
+
+# Define mapping for x-axis labels with superscripts
+x_axis_labels <- c(
+  "Burkins_Bonney" = expression(paste("Bonney Basin"^1)), 
+  "Burkins_Hoare" = expression(paste("Hoare Basin"^1)),
+  "Burkins_Fryxell" = expression(paste("Fryxell Basin"^1)),
+  "Schmidt_Taylor" = "Taylor Glacier",
+  "Schmidt_Canada" = "Canada Glacier",
+  "Schmidt_Commonwealth" = "Commonwealth Glacier",
+  "Solon_Bonney" = expression(paste("Bonney Basin"^2)),
+  "Solon_Hoare" = expression(paste("Hoare Basin"^2)),
+  "Solon_Fryxell" = expression(paste("Fryxell Basin"^2))
+)
+
+# Define legend labels for Study categories
+study_labels <- c(
+  "Burkins" = "soil 25-210m",
+  "Solon" = "soil ~400m",
+  "Schmidt" = "cryoconite"
+)
+
+# Define x-axis order for locations
+study_location_order <- c("Burkins_Bonney", "Solon_Bonney", "Schmidt_Taylor", "Burkins_Hoare",  "Solon_Hoare", "Schmidt_Canada", "Burkins_Fryxell", "Solon_Fryxell", "Schmidt_Commonwealth")
+
+# Define custom color palette based on Study
+custom_colors <- c(
+  "Schmidt" = "#377eb8",  # Blue shades
+  "Burkins" = "brown4",  # Brown shades
+  "Solon"   = "grey50"   # Purple shades
+)
+
+```
+
+```{r create - save plots}
+# Initialize a list to store plots
+study_location_plots <- list()
+
+# Define the list of dataframes to iterate through
+dataframes_to_process <- list(
+  df.cn.2 = df.cn.2,
+  df.p.2 = df.p.2
+)
+
+# Iterate through each dataframe
+for (df_name in names(dataframes_to_process)) {
+  df <- dataframes_to_process[[df_name]]  
+
+  if (!("Study" %in% colnames(df) && "Location" %in% colnames(df) && "treatment" %in% colnames(df))) {
+    print(paste("Skipping", df_name, "as it lacks required columns"))
+    next
+  }
+
+  print(paste("Processing plots for", df_name))
+
+  df_filtered <- df %>% filter(is.na(treatment) | treatment == "bulk") %>%
+    mutate(
+      Study = factor(Study, levels = c("Burkins", "Solon", "Schmidt")),  # Ensure correct legend order
+      Study_Location = paste(Study, Location, sep = "_"),
+      Study_Location = factor(Study_Location, levels = study_location_order)  # Ensure x-axis follows correct order
+    ) %>%
+    arrange(factor(Study_Location, levels = study_location_order)) # Arrange by explicit factor order
+
+  df_filtered$Study_Location <- factor(df_filtered$Study_Location, levels = unique(df_filtered$Study_Location))
+
+  for (var in names(y_axis_labels)) {  
+    if (!(var %in% colnames(df_filtered))) next  
+
+    df_var_filtered <- df_filtered %>% filter(!is.na(.data[[var]]))
+
+    summary_stats <- df_var_filtered %>%
+      group_by(geog, Study, Study_Location) %>%
+      summarise(
+        mean = mean(.data[[var]], na.rm = TRUE),
+        se = sd(.data[[var]], na.rm = TRUE) / sqrt(n()),
+        min_value = min(.data[[var]], na.rm = TRUE),
+        max_value = max(.data[[var]], na.rm = TRUE),
+        .groups = "drop"
+      )
+
+    # Calculate data range
+    data_range <- max(summary_stats$max_value, na.rm = TRUE) - min(summary_stats$min_value, na.rm = TRUE)
+
+    # Define step size based on data range
+    step_size <- case_when(
+      data_range <= 30 ~ 5,
+      data_range <= 100 ~ 10,
+      data_range <= 1000 ~ 100,
+      data_range <= 10000 ~ 1000,
+      TRUE ~ 10000
+    )
+
+    # Round min/max to the nearest multiple of step_size
+    buffered_min <- floor(min(summary_stats$min_value, na.rm = TRUE) / step_size) * step_size
+    buffered_max <- ceiling(max(summary_stats$max_value, na.rm = TRUE) / step_size) * step_size
+
+    # Generate breaks sequence
+    breaks_seq <- seq(buffered_min, buffered_max, by = step_size)
+
+    # Filter summary_stats to match geog levels within each facet
+    summary_stats_filtered <- summary_stats %>%
+      filter(Study_Location %in% df_var_filtered$Study_Location)
+
+    # Determine y-axis limits dynamically while ensuring all data fits
+    y_range <- range(df_var_filtered[[var]], na.rm = TRUE)
+    y_padding <- diff(y_range) * 0.15  # Increase padding for edge cases
+
+    y_min <- y_range[1] - y_padding
+    y_max <- y_range[2] + y_padding
+    
+    #ggplot
+    p <- ggplot(df_var_filtered, aes(x = Study_Location, y = .data[[var]], fill = Study)) +
+      geom_jitter(size = 3, shape = 21, color = "black", width = 0.1, alpha = 0.35) +
+      geom_pointrange(data = summary_stats_filtered, aes(x = Study_Location, y = mean, ymin = mean - se, ymax = mean + se, fill = Study), 
+                      size = 1.5, shape = 21, color = "black", stroke = 0.5, alpha = 0.35) +
+      labs(title = "", x = "", y = y_axis_labels[[var]]) +
+      scale_x_discrete(labels = x_axis_labels) +
+      scale_fill_manual(values = custom_colors, labels = study_labels, name = "Sediment") +  
+      scale_y_continuous(limits = c(buffered_min, buffered_max), breaks = breaks_seq) +
+      facet_wrap(~ geog, scales = "free_x") +
+      theme_bw() +
+      theme(legend.position = "top",
+            plot.title = element_text(size = rel(1.8)),
+            axis.title.y = element_text(size = 18), 
+            axis.title.x = element_text(size = 18),
+            axis.text.x = element_text(size = 12, angle = 75, hjust = 1),
+            axis.text.y = element_text(size = 16),
+            strip.text.x = element_text(size = 14),
+            axis.ticks.x.top = element_blank(),
+            axis.text.x.top = element_blank(),
+            panel.grid.minor.x = element_blank(),
+            panel.grid.major.x = element_blank(),
+            panel.grid.minor.y = element_blank()
+      )
+
+    # Apply significance groupings **only if they exist**
+    sig_grp_key <- paste(df_name, var, sep = "_")
+    sig_grp <- sig_groups_emmeans_fld[[sig_grp_key]]
+
+    if (!is.null(sig_grp) && nrow(sig_grp) > 0) {
+      label.y <- y_max - (y_padding * 0.1)  # Ensures labels stay inside y-axis limits
+
+      p <- p + geom_text(data = sig_grp, aes(x = Study_Location, y = label.y, label = sig_grps), 
+                         size = 6, fontface = "bold", color = "black")
+    }
+    
+    # Save plots in .jpeg, .pdf, and .svg formats
+    file_base <- paste0(sub.directory.1.1.2.2.1.fp, "/MDV-soils-nutrient-limitation-Field-", var)
+    
+    ggsave(paste0(file_base, ".jpeg"), plot = p, device = "jpeg", width = 8, height = 6, dpi = 300)
+    ggsave(paste0(file_base, ".pdf"), plot = p, device = "pdf", width = 8, height = 6)
+    ggsave(paste0(file_base, ".svg"), plot = p, device = "svg", width = 8, height = 6)
+
+    # Store plot in list and print
+    study_location_plots[[paste(df_name, var, sep = "_")]] <- p
+    print(p)
+  }
+}
+
+```
+
+```{r create - save plots log}
+# Initialize a separate list for log-transformed plots
+log_transformed_plots <- list()
+
+# Define the subset of variables for log transformation
+log_vars <- c("umol.C_g.soil", "umol.N_g.soil", "ngDNA_per_g_soil")
+
+# Iterate through each dataframe
+for (df_name in names(dataframes_to_process)) {  
+  df <- dataframes_to_process[[df_name]]  
+
+  if (!("Study" %in% colnames(df) && "Location" %in% colnames(df) && "treatment" %in% colnames(df))) {
+    print(paste("Skipping", df_name, "as it lacks required columns"))
+    next
+  }
+
+  print(paste("Processing log-transformed plots for", df_name))
+
+  df_filtered <- df %>%
+    filter(is.na(treatment) | treatment == "bulk") %>%
+    mutate(Study = factor(Study, levels = c("Burkins", "Solon", "Schmidt")),  # Ensure correct legend order
+           Study_Location = paste(Study, Location, sep = "_"),
+           Study_Location = factor(Study_Location, levels = study_location_order))
+
+  # Ensure study locations are properly ordered
+  df_filtered$Study_Location <- factor(df_filtered$Study_Location, 
+                                       levels = c("Burkins_Bonney", "Solon_Bonney", "Schmidt_Taylor", "Burkins_Hoare", "Solon_Hoare", "Schmidt_Canada", "Burkins_Fryxell", "Solon_Fryxell", "Schmidt_Commonwealth")
+)
+
+  for (var in log_vars) {   
+    if (!(var %in% colnames(df_filtered))) next  
+
+    # Filter out NA and non-positive values (since log transformation requires positive numbers)
+    df_var_filtered <- df_filtered %>%
+      filter(!is.na(.data[[var]]) & .data[[var]] > 0) %>%
+      mutate(!!sym(var) := log10(.data[[var]]))  # Apply log10 transformation
+
+    if (nrow(df_var_filtered) == 0) {
+      print(paste("Skipping", df_name, "for", var, "due to insufficient positive values"))
+      next
+    }
+
+    p_log <- ggplot(df_var_filtered, aes(x = Study_Location, y = .data[[var]], fill = Study)) +
+  geom_jitter(size = 3, shape = 21, color = "black", width = 0.1, alpha = 0.35) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.5) +  # Optional for better visualization
+  labs(title = "", x = "", y = y_axis_labels[[var]]) +
+  scale_x_discrete(labels = x_axis_labels) +
+  scale_fill_manual(values = custom_colors, labels = study_labels, name = "Sediment") +
+  scale_y_continuous(trans = "log10", labels = scales::math_format(10^.x)) +  # Display in 10^ format
+  facet_wrap(~ geog, scales = "free_x") +
+  theme_bw() +
+  theme(
+    plot.title = element_text(size = rel(1.8)),
+    axis.title.y = element_text(size = 18), 
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, angle = 45, hjust = 1),
+    axis.text.y = element_text(size = 16),
+    strip.text.x = element_text(size = 13),
+    axis.ticks.x.top = element_blank(),
+    axis.text.x.top = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.y = element_blank()
+  )
+    
+    # Save plots in .jpeg, .pdf, and .svg formats
+    file_base <- paste0(sub.directory.1.1.2.2.1.fp, "/MDV-soils-nutrient-limitation-Field-", var, "_LOG")
+    
+    ggsave(paste0(file_base, ".jpeg"), plot = p_log, device = "jpeg", width = 8, height = 6, dpi = 300)
+    ggsave(paste0(file_base, ".pdf"), plot = p_log, device = "pdf", width = 8, height = 6)
+    ggsave(paste0(file_base, ".svg"), plot = p_log, device = "svg", width = 8, height = 6)
+
+    # Store plot in list and print
+    log_transformed_plots[[paste(df_name, var, sep = "_")]] <- p_log
+    print(p_log)
+  }
+}
+
+```
+
+### P plots   
+```{r define objects p, dna}
+# Define selected variables for df.p.2
+selected_vars_p <- c("umol.TP_g.soil", "umol.TIP_g.soil", "umol.TOP_g.soil")
+
+# Define fixed y-axis ranges
+y_axis_limits_p <- list(
+  "umol.TP_g.soil" = c(37, 43), 
+  "umol.TIP_g.soil" = c(19, 41),
+  "umol.TOP_g.soil" = c(-1, 21)
+)
+
+y_breaks_p <- list(
+  "umol.TP_g.soil" = c(38, 40, 42), 
+  "umol.TIP_g.soil" = c(20, 25, 30, 35, 40),
+  "umol.TOP_g.soil" = c(0, 5, 10, 15, 20)
+)
+
+```
+
+```{r create, display, save plots p}
+# Filter df.p.2 for this study
+df_p_filtered <- df.p.2 %>%
+  filter(Study == "Solon" & !is.na(treatment)) %>%
+  mutate(treatment = factor(treatment, levels = c("bulk", "CTRL", "N", "P", "NP")),
+         Location = factor(Location, levels = c("Hoare", "Fryxell")))  # Set facet order
+
+# Initialize list to store plots
+treatment_plots_p <- list()
+
+for (var in selected_vars_p) {
+    df_var_filtered <- df_p_filtered %>% filter(!is.na(.data[[var]]))
+
+    if (nrow(df_var_filtered) == 0) {
+        print(paste("Skipping variable", var, "since no valid data remains after filtering"))
+        next
+    }
+
+    summary_stats <- df_var_filtered %>%
+        group_by(Location, treatment) %>%
+        summarise(mean = mean(.data[[var]], na.rm = TRUE),
+                  se = sd(.data[[var]], na.rm = TRUE) / sqrt(n()),
+                  .groups = "drop")
+
+    colors <- custom_colors
+
+    p <- ggplot(df_var_filtered, aes(x = treatment, y = .data[[var]], fill = treatment)) +
+        geom_jitter(size = 4, shape = 21, color = "black", width = 0.1, alpha = 0.55) +
+        geom_pointrange(data = summary_stats, aes(x = treatment, y = mean, ymin = mean - se, ymax = mean + se, fill = treatment), 
+                        size = 2, shape = 21, color = "black", stroke = 0.5, alpha = 0.35) +
+        scale_y_continuous(limits = y_axis_limits_p[[var]], breaks = y_breaks_p[[var]]) +
+        labs(title = paste(""), x = "", y = y_axis_labels[[var]]) +
+        scale_fill_manual(values = colors) +
+        guides(fill = "none") +
+        facet_wrap(~ location, scales = "free_x") +
+        theme_bw() +
+        theme(plot.title = element_text(size = rel(1.8)),
+                axis.title.y = element_text(size = 18), 
+                axis.title.x = element_text(size = 18),
+                axis.text.x = element_text(size = 16),
+                axis.text.y = element_text(size = 16),
+                strip.text.x = element_text(size = 16),
+                panel.grid.minor.x = element_blank(),
+                panel.grid.major.x = element_blank(),
+                panel.grid.minor.y = element_blank()) +
+        facet_grid(. ~ Location)  # Locations will follow Hoare → Fryxell order
+
+    # Store plot and print it
+    plot_name <- paste("combined", var, sep = "_")
+    treatment_plots_p[[plot_name]] <- p
+    print(p)
+
+    # Save plot in multiple formats
+    file_name <- paste0("MDV-soils-nutrient-limitation-Field-", var)
+
+    ggsave(filename = file.path(sub.directory.1.1.2.2.1.fp, paste0(file_name, ".jpeg")), plot = p, width = 12, height = 6, dpi = 300)
+    ggsave(filename = file.path(sub.directory.1.1.2.2.1.fp, paste0(file_name, ".pdf")), plot = p, width = 12, height = 6)
+    ggsave(filename = file.path(sub.directory.1.1.2.2.1.fp, paste0(file_name, ".svg")), plot = p, width = 12, height = 6)
+}
+
+```
+
+# Experiment  
+## Statistics  
+```{r format 4}
+# Filter dataframes to retain only rows related to the experiment (i.e., this study)
+# Define function to process dataframes
+process_data <- function(df) {
+  df %>%
+    filter(Study == "Solon") %>%  # Retain only rows with Study == "Solon"
+    mutate(treatment = factor(treatment, levels = c("bulk", "CTRL", "N", "P", "NP")),  # Set treatment as factor
+           n_add = treatment %in% c("N", "NP"),  # TRUE if N or NP
+           p_add = treatment %in% c("P", "NP"))   # TRUE if P or NP
+}
+
+# Apply function to dataframes
+df.cn.3 <- process_data(df.cn.2)
+
+#add new columns to m.2
+m.3 <- m.2 %>%
+  mutate(treatment = factor(treatment, levels = c("bulk", "CTRL", "N", "P", "NP")),  # Set treatment as factor
+           n_add = treatment %in% c("N", "NP"),  # TRUE if N or NP
+           p_add = treatment %in% c("P", "NP"))   # TRUE if P or NP
+
+```
+
+### Summary Stats  
+```{r sum stats treatment}
+# Define the list of dataframes to iterate through
+dataframes_to_process <- list(
+  df.cn.3 = df.cn.3,
+  m.3 = m.3
+)
+
+# Define the variables of interest
+selected_vars <- c("umol.C_g.soil", "umol.N_g.soil", "C_to_N", 
+                   "ngDNA_per_g_soil")
+
+# Initialize a list to store summary statistics
+summary_study_location_treatment <- list()
+
+# Iterate through each dataframe
+for (df_name in names(dataframes_to_process)) {
+  df <- dataframes_to_process[[df_name]]  # Retrieve dataframe
+
+  # Ensure the dataframe contains Study, Location, and Treatment columns
+  if (!("Study" %in% colnames(df) && "Location" %in% colnames(df) && "treatment" %in% colnames(df))) {
+    print(paste("Skipping", df_name, "as it lacks required columns"))
+    next
+  }
+
+  print(paste("Processing summary statistics for", df_name))
+
+  # Filter dataframe to **drop rows with NA in treatment**
+  df_filtered_treatment <- df %>% filter(!is.na(treatment))
+
+  # Initialize an empty list for storing summary results for this dataframe
+  summary_results_treatment <- list()
+
+  for (var in selected_vars) {
+    if (var %in% colnames(df_filtered_treatment)) {
+      stats <- df_filtered_treatment %>%
+        group_by(Study, Location, treatment) %>%
+        summarise(
+          n = n(),
+          mean = mean(.data[[var]], na.rm = TRUE),
+          se = sd(.data[[var]], na.rm = TRUE) / sqrt(n()),
+          lowCI = mean(.data[[var]], na.rm = TRUE) - 1.96 * sd(.data[[var]], na.rm = TRUE) / sqrt(n()),
+          uprCI = mean(.data[[var]], na.rm = TRUE) + 1.96 * sd(.data[[var]], na.rm = TRUE) / sqrt(n()),
+          .groups = "drop"
+        ) %>%
+        mutate(variable = var, dataframe = df_name)
+
+      # Store results
+      summary_results_treatment[[var]] <- stats
+    }
+  }
+
+  # Ensure results are stored correctly in `summary_study_location_treatment`
+  summary_study_location_treatment[[df_name]] <- summary_results_treatment
+
+  # **Print results for verification**
+  for (var in names(summary_results_treatment)) {
+    print(paste("Summary statistics for", var, "in", df_name))
+    print(summary_results_treatment[[var]])
+  }
+}
+
+```
+
+### Save files
+```{r save files}
+# Save summary statistics grouped by Study, Location & Treatment
+for (df_name in names(summary_study_location_treatment)) {
+  for (var in names(summary_study_location_treatment[[df_name]])) {
+    file_path <- paste0(sub.directory.1.1.2.1.2.1.fp, "/MDV-soils-nutrient-limitation-Expr-", var, "_summary_stats.csv")
+
+    write.csv(summary_study_location_treatment[[df_name]][[var]], file = file_path, row.names = FALSE)
+
+  }
+}
+
+```
+
+### Inferential Stats  
+ANOVA assumes normality and homogeneity of variances for residuals  
+```{r aov models}
+# Define datasets, locations, and response variables
+datasets.e.1 <- list(df.cn.3 = c("umol.C_g.soil", "umol.N_g.soil", "C_to_N"),
+                 m.3     = c("ngDNA_per_g_soil"))
+locations <- c("Bonney", "Hoare", "Fryxell")
+
+# Initialize lists to store results
+no_fit_models_exp <- list()
+aov_models_meets_assumptions_exp <- list()
+aov_models_violates_assumptions_exp <- list()
+emmeans_results_aov_exp <- list()  # **New list to store emmeans outputs**
+
+# Iterate through datasets
+for (df_name in names(datasets.e.1)) {
+  df <- get(df_name)
+  response_vars <- datasets.e.1[[df_name]]
+
+  for (location in locations) {
+    df_subset <- subset(df, Location == location)
+
+    for (response_var in response_vars) {
+      df_subset <- df_subset %>%
+        filter(!is.na(treatment) & !is.na(.data[[response_var]])) %>%  # Remove NA in treatment & response variable
+        mutate(treatment = factor(treatment, levels = c("bulk", "CTRL", "N", "P", "NP")))  
+
+      if (nrow(df_subset) == 0) {
+        print(paste("Skipping", location, "_", df_name, "due to missing treatment or response variable data"))
+        next
+      }
+
+      if (length(df_subset$treatment) != nrow(df_subset)) {
+        print(paste("Skipping", location, "_", response_var, "due to treatment length mismatch"))
+        next
+      }
+
+      model <- aov(reformulate("treatment", response = response_var), data = df_subset)
+      model_summary <- summary(model)
+      anova_p <- unlist(model_summary[[1]]["Pr(>F)"])[1]
+
+      if (!is.numeric(anova_p) || is.na(anova_p) || anova_p > 0.05) {
+        no_fit_models_exp[[paste(df_name, location, response_var, sep = "_")]] <- model_summary
+
+        # **Save No Fit Model Output**
+        no_fit_filename <- file.path(sub.directory.1.1.2.1.2.2.fp, paste0(location, "_", response_var, "_NO_fit.txt"))
+        writeLines(capture.output(print(model_summary)), no_fit_filename)
+
+        print(paste(location, response_var, "- No model fit, saved ANOVA output"))
+        next
+      }
+
+      # Assumptions testing
+      shapiro_test <- shapiro.test(residuals(model))$p.value
+      levene_test <- leveneTest(residuals(model) ~ treatment, data = df_subset)$`Pr(>F)`[1]
+
+      assumptions_output <- c(
+        paste("Shapiro-Wilk normality test p-value:", round(shapiro_test, 5)),
+        paste("Levene test for homogeneity p-value:", round(levene_test, 5))
+      )
+
+      if (shapiro_test > 0.05 & levene_test > 0.05) {
+        # **Save Assumption Test Outputs (Meets Assumptions)**
+        meets_filename <- file.path(sub.directory.1.1.2.1.2.2.fp, paste0(location, "_", response_var, "_meets_assumptions.txt"))
+        writeLines(assumptions_output, meets_filename)
+
+        em_model <- emmeans(model, pairwise ~ treatment, adjust = "Tukey")
+        em_output_aov <- capture.output(print(em_model))
+
+        # **Store Emmeans results**
+        emmeans_results_aov_exp[[paste(location, response_var, sep = "_")]] <- em_model
+
+        aov_models_meets_assumptions_exp[[paste(df_name, location, response_var, sep = "_")]] <- model_summary
+
+        # **Save ANOVA and Emmeans Outputs**
+        writeLines(capture.output(print(model_summary)), file.path(sub.directory.1.1.2.1.2.2.fp, paste0(location, "_", response_var, "_ANOVA.txt")))
+        writeLines(em_output_aov, file.path(sub.directory.1.1.2.1.2.2.fp, paste0(location, "_", response_var, "_emmeans.txt")))
+
+        print(paste(location, response_var, "- ANOVA performed, assumptions met, results saved"))
+      } else {
+        # **Save Assumption Test Outputs and Significant ANOVA (Violates Assumptions)**
+        violates_filename <- file.path(sub.directory.1.1.2.1.2.2.fp, paste0(location, "_", response_var, "_violates_assumptions.txt"))
+        writeLines(c(capture.output(print(model_summary)), assumptions_output), violates_filename)
+
+        aov_models_violates_assumptions_exp[[paste(df_name, location, response_var, sep = "_")]] <- df_subset
+        print(paste(location, response_var, "- Model assumptions not met, saved ANOVA and assumption test output"))
+      }
+    }
+  }
+}
+
+```
+
+Welch ANOVA  - relaxes assumption of homogeneity of variance of residuals
+```{r welch aov models}
+# Define datasets and treatment levels
+datasets.e.2 <- list(df.cn.3, m.3)
+locations <- c("Fryxell", "Bonney")
+
+# Define variables for each test
+welch_vars <- list("Fryxell" = "C_to_N", "Bonney" = c("umol.N_g.soil", "umol.C_g.soil"))
+
+# Initialize lists for results
+welch_results_exp <- list()
+emmeans_results_welch_exp <- list()  # **New list to store emmeans outputs**
+
+# Iterate through locations
+for (location in locations) {
+  
+  # Select dataset based on location
+  df_subset <- bind_rows(datasets.e.2) %>% filter(Location == location)
+  
+  # Welch ANOVA Processing
+  if (location %in% names(welch_vars)) {
+    for (response_var in welch_vars[[location]]) {
+      
+      df_subset_clean <- df_subset %>% filter(!is.na(treatment) & !is.na(.data[[response_var]]))
+      
+      model_welch <- oneway.test(as.formula(paste(response_var, "~ treatment")), data = df_subset_clean, var.equal = FALSE)
+      
+      p_val <- model_welch$p.value
+      
+      if (p_val < 0.05) {
+        em_model <- emmeans(lm(as.formula(paste(response_var, "~ treatment")), data = df_subset_clean), pairwise ~ treatment, adjust = "Tukey")
+        em_output_welch <- capture.output(print(em_model))
+        
+        # **Store Emmeans results**
+        emmeans_results_welch_exp[[paste(location, response_var, sep = "_")]] <- em_model
+        
+        welch_results_exp[[paste(location, response_var, sep = "_")]] <- model_welch
+        
+        # Save outputs
+        writeLines(capture.output(print(model_welch)), file.path(sub.directory.1.1.2.1.2.2.fp, paste0(location, "_", response_var, "_Welch_Anova.txt")))
+        writeLines(em_output_welch, file.path(sub.directory.1.1.2.1.2.2.fp, paste0(location, "_", response_var, "_Welch_emmeans.txt")))
+
+        print(paste(location, response_var, "- Welch ANOVA model fit, results saved"))
+      } else {
+        writeLines(capture.output(print(model_welch)), file.path(sub.directory.1.1.2.1.2.2.fp, paste0(location, "_", response_var, "_Welch_Anova.txt")))
+        print(paste(location, response_var, "- No Welch ANOVA model fit"))
+      }
+    }
+  }
+}
+
+```
+
+Robust Regression  (weighted least squares) - relaxes assumptions of normality and homogeneity of variance for model residuals
+```{r rob reg model}
+# Define datasets and treatment levels
+datasets.e.3 <- list(df.cn.3, m.3)
+locations <- c("Fryxell", "Bonney")
+robust_vars <- list("Fryxell" = "umol.C_g.soil", "Bonney" = "ngDNA_per_g_soil")
+
+# Initialize lists to store results
+robust_regression_models_exp <- list()
+emmeans_results_robust_exp <- list()  # **New list to store emmeans outputs**
+
+# Define McFadden's Pseudo R² function
+pseudo_r2 <- function(model_full, model_null) {
+  1 - (logLik(model_full) / logLik(model_null))
+}
+
+# Loop through locations and variables
+for (location in locations) {
+  
+  # Select dataset for location
+  df_subset <- bind_rows(datasets.e.3) %>% filter(Location == location)
+
+  if (location %in% names(robust_vars)) {
+    response_var <- robust_vars[[location]]
+
+    # Filter data
+    df_subset_clean <- df_subset %>% filter(!is.na(treatment) & !is.na(.data[[response_var]]))
+
+    # Check if data exists for model fitting
+    if (nrow(df_subset_clean) > 0) {
+      # **Run robust regression (rlm)**
+      model_robust <- rlm(as.formula(paste(response_var, "~ treatment")), data = df_subset_clean)
+      robust_regression_models_exp[[paste(location, response_var, sep = "_")]] <- model_robust
+
+      # **Compute McFadden's Pseudo R²**
+      model_null <- rlm(as.formula(paste(response_var, "~ 1")), data = df_subset_clean)
+      r2_value <- pseudo_r2(model_robust, model_null)
+
+      # **Perform likelihood ratio test**
+      lr_test <- lrtest(model_null, model_robust)
+
+      # **Perform robust post hoc test using emmeans**
+      em_model_robust <- emmeans(model_robust, pairwise ~ treatment, adjust = "Tukey")
+      em_output_robust <- capture.output(print(em_model_robust))
+
+      # **Store Emmeans results**
+      emmeans_results_robust_exp[[paste(location, response_var, sep = "_")]] <- em_model_robust
+
+      # **Save model outputs**
+      robust_filename <- file.path(sub.directory.1.1.2.1.2.2.fp, paste0(location, "_", response_var, "_robust_regression.txt"))
+      emmeans_filename <- file.path(sub.directory.1.1.2.1.2.2.fp, paste0(location, "_", response_var, "_emmeans.txt"))
+
+      # Capture all robust regression outputs together
+      robust_output <- c(
+        capture.output(print(summary(model_robust))),
+        capture.output(print(lr_test)),  # Append likelihood ratio test results
+        paste("McFadden's Pseudo R²:", round(r2_value, 3))  # Append McFadden’s R² value
+      )
+
+      # Write all outputs to file
+      writeLines(robust_output, robust_filename)
+
+      # Save emmeans post hoc results separately
+      writeLines(em_output_robust, emmeans_filename)
+
+      # Print success message
+      print(paste(location, response_var, "- Model successfully fit and emmeans results saved"))
+    } else {
+      print(paste(location, response_var, "- No model fit"))
+    }
+  }
+}
+
+```
+
+```{r sig groupings - exp}
+# Initialize storage for significance groupings
+sig_groups_emmeans_exp <- list()
+
+# Define treatment order
+treatment_order <- c("bulk", "CTRL", "N", "P", "NP")
+
+# Combine the three model lists into one
+model_lists <- list(
+  emmeans_results_aov_exp,
+  emmeans_results_welch_exp,
+  emmeans_results_robust_exp
+)
+
+# Loop through models across all lists
+for (model_list in model_lists) {
+  for (key in names(model_list)) {
+
+    em_model <- model_list[[key]]
+
+    # Ensure emmeans model results are valid
+    if (!is.null(em_model) && inherits(em_model$contrasts, "emmGrid")) {
+
+      # Extract p-values from emmeans pairwise contrasts
+      contrast_results <- summary(em_model$contrasts)  # Extract pairwise contrasts
+      contrast_df <- as.data.frame(contrast_results)
+
+      # Ensure bulk is always first in comparisons
+      contrast_df$contrast <- gsub(" - ", "-", contrast_df$contrast)
+
+      # Convert p-values into a named vector for multcompView
+      p.val.vec <- setNames(contrast_df$p.value, contrast_df$contrast)
+      p.val.vec <- p.val.vec[!is.na(p.val.vec)]  # Remove any NA values
+
+      # Generate significance groupings using multcompView
+      sig_groups <- multcompLetters(p.val.vec)$Letters
+
+      # Convert results to a dataframe
+      sig_grp_df <- data.frame(
+        treatment = names(sig_groups),
+        sig_grps = as.character(sig_groups)  # Convert to text
+      )
+
+      # Ensure treatments are sorted correctly
+      sig_grp_df$treatment <- factor(sig_grp_df$treatment, levels = treatment_order, ordered = TRUE)
+      sig_grp_df <- sig_grp_df[order(sig_grp_df$treatment), ]
+
+      # Debug: Print before storing
+      print(paste("Storing significance group for:", key))
+      print(sig_grp_df)
+
+      # Store updated significance groupings
+      sig_groups_emmeans_exp[[key]] <- sig_grp_df
+    } else {
+      print(paste("Skipping:", key, "due to invalid model"))
+      sig_groups_emmeans_exp[[key]] <- NULL
+    }
+  }
+}
+
+# Print final stored significance groups
+print("Significance groups from stored emmeans results:")
+print(sig_groups_emmeans_exp)
+
+```
+
+## Plots  
+```{r define objects cn}
+# Define custom treatment colors for each Location
+custom_treatment_colors_list <- list(
+  Bonney  = c("bulk" = "grey50", "CTRL" = "tan", "N" = "tan", "P" = "#01665E", "NP" = "#01665E"),
+  Hoare   = c("bulk" = "grey50", "CTRL" = "tan", "N" = "#01665E", "P" = "tan", "NP" = "#01665E"),
+  Fryxell = c("bulk" = "grey50", "CTRL" = "tan", "N" = "#01665E", "P" = "#01665E", "NP" = "#01665E")
+)
+
+custom_treatment_shades_list <- list(
+  Bonney  = c("bulk" = "grey90", "CTRL" = "gray70", "N" = "gray50", "P" = "gray30", "NP" = "gray10"),
+  Hoare   = c("bulk" = "#D2B48C","CTRL" = "#C19A6B","N" = "#A67B5B", "P" = "#8B5A2B", "NP"   = "#5C4033"),
+  Fryxell = c("bulk" = "#ADD8E6","CTRL" = "#87CEEB","N" = "#4682B4", "P" = "#1E90FF", "NP"   = "#0B3D91"))
+
+# Define locations
+locations <- c("Bonney", "Hoare", "Fryxell")
+
+# Define selected variables for df.cn.2
+selected_vars_cn <- c("umol.C_g.soil", "umol.N_g.soil", "C_to_N")
+
+```
+
+### C, N plots  
+```{r create - save plots cn}
+# Filter for this study
+df_cn_filtered <- df.cn.3 %>% filter(Study == "Solon" & !is.na(treatment))
+df_cn_filtered$treatment <- factor(df_cn_filtered$treatment, levels = c("bulk", "CTRL", "N", "P", "NP"))
+
+# Initialize list to store plots
+treatment_plots_cn <- list()
+
+#iterate
+for (var in selected_vars_cn) {
+  for (location_name in c("Bonney", "Hoare", "Fryxell")) {
+    
+    df_location_filtered <- df_cn_filtered %>% filter(Location == location_name)
+
+    if (!(var %in% colnames(df_location_filtered))) {
+      print(paste("Skipping variable", var, "in location", location_name))
+      next
+    }
+
+    df_var_filtered <- df_location_filtered %>% filter(!is.na(.data[[var]]))
+
+    if (nrow(df_var_filtered) == 0) {
+      print(paste("Skipping variable", var, "in location", location_name))
+      next
+    }
+
+    summary_stats <- df_var_filtered %>%
+      group_by(treatment) %>%
+      summarise(mean = mean(.data[[var]], na.rm = TRUE),
+                se = sd(.data[[var]], na.rm = TRUE) / sqrt(n()),
+                .groups = "drop")
+
+    #colors <- custom_treatment_colors_list[[location_name]]
+
+    shades <- custom_treatment_shades_list[[location_name]]
+    
+    # Determine y-axis limits dynamically while ensuring all data fits
+    y_range <- range(df_var_filtered[[var]], na.rm = TRUE)
+    y_padding <- diff(y_range) * 0.15  # Increase padding for edge cases
+
+    y_min <- y_range[1] - y_padding
+    y_max <- y_range[2] + y_padding
+
+    p <- ggplot(df_var_filtered, aes(x = treatment, y = .data[[var]], fill = treatment)) +
+      geom_jitter(size = 4, shape = 21, color = "black", width = 0.1, alpha = 0.55) +
+      geom_pointrange(data = summary_stats, aes(x = treatment, y = mean, ymin = mean - se, ymax = mean + se, fill = treatment),
+                      size = 2, shape = 21, color = "black", stroke = 0.5, alpha = 0.35) +
+      labs(title = paste(location_name), y = y_axis_labels[[var]]) +
+      guides(fill = "none") +
+      scale_fill_manual(values = shades) +
+      scale_y_continuous(limits = c(y_min, y_max), expand = expansion(mult = c(0, 0.05))) +  # Ensure tick marks enclose all data points
+      theme_bw() +
+      theme(axis.title.x = element_blank(),
+          axis.text.x = element_text(size = 18),
+          axis.title.y = element_text(size = 20),
+          axis.text.y = element_text(size = 18),
+          axis.ticks.y = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.y = element_blank())
+
+    # Apply significance groupings **only if they exist**
+    sig_grp_key <- paste(location_name, var, sep = "_")
+    sig_grp <- sig_groups_emmeans_exp[[sig_grp_key]]
+
+    if (!is.null(sig_grp) && nrow(sig_grp) > 0) {
+      label.y <- y_max - (y_padding * 0.1)  # Ensures labels stay inside y-axis limits
+
+      p <- p + geom_text(data = sig_grp, aes(x = treatment, y = label.y, label = sig_grps), 
+                         size = 6, fontface = "bold", color = "black")
+    }
+
+    # Store plot and print
+    plot_name <- paste("MDV-soils-nutrient-limitation-Expr-", location_name, "-", var)
+    treatment_plots_cn[[plot_name]] <- p
+    print(p)
+
+    # Save plots
+    ggsave(filename = file.path(sub.directory.1.1.2.2.2.fp, paste0(plot_name, ".jpeg")), plot = p, width = 10, height = 6, dpi = 300)
+    ggsave(filename = file.path(sub.directory.1.1.2.2.2.fp, paste0(plot_name, ".pdf")), plot = p, width = 10, height = 6)
+    ggsave(filename = file.path(sub.directory.1.1.2.2.2.fp, paste0(plot_name, ".svg")), plot = p, width = 10, height = 6)
+  }
+}
+
+```
+
+### C, N plots - location combined   
+```{r create - save plots c, n, cn}
+#define rows by variable
+rows <- list(
+  "umol.C_g.soil",
+  "umol.N_g.soil",
+  "C_to_N"
+)
+
+# Define fixed y-axis ranges
+y_axis_limits <- list(
+  "umol.C_g.soil" = c(10, 70),
+  "umol.N_g.soil" = c(0, 5),
+  "C_to_N" = c(0, 30)
+)
+
+y_breaks <- list(
+  "umol.C_g.soil" = c(10, 30, 50, 70),
+  "umol.N_g.soil" = c(0, 1, 2, 3, 4, 5),
+  "C_to_N" = c(0, 10, 20, 30)
+)
+
+# Generate and save plots for each row
+for (i in seq_along(rows)) {
+  var <- rows[[i]][1]  # Single variable per row
+  y_limits <- y_axis_limits[[var]]  # Get predefined y-axis range
+
+  row_plots <- lapply(locations, function(location) {
+    df_var_filtered <- df_cn_filtered %>% filter(Location == location & !is.na(.data[[var]]))
+
+    if (nrow(df_var_filtered) == 0) return(NULL)  # Skip empty datasets
+
+    summary_stats <- df_var_filtered %>%
+      group_by(treatment) %>%
+      summarise(mean = as.numeric(mean(.data[[var]], na.rm = TRUE)),
+                se = as.numeric(sd(.data[[var]], na.rm = TRUE) / sqrt(n())), .groups = "drop")
+
+    #colors <- custom_treatment_colors_list[[location]]  # Get location-specific colors
+
+    shades <- custom_treatment_shades_list[[location]]
+    
+    #plot
+    p <- ggplot(df_var_filtered, aes(x = treatment, y = .data[[var]], fill = treatment)) +
+      geom_jitter(size = 4, shape = 21, color = "black", width = 0.1, alpha = 0.55) +
+      geom_pointrange(data = summary_stats,
+                      aes(x = treatment, y = mean, ymin = mean - se, ymax = mean + se, fill = treatment),
+                      size = 2, shape = 21, color = "black", stroke = 0.5, alpha = 0.35) +
+      labs(title = location, y = ifelse(location == "Bonney", y_axis_labels[[var]], "")) +
+      scale_y_continuous(limits = y_axis_limits[[var]], breaks = y_breaks[[var]]) +
+      scale_x_discrete(limits = levels(df_cn_filtered$treatment)) +
+      scale_fill_manual(values = shades) +  # Apply custom colors
+      guides(fill = "none") +
+      theme_bw() +
+      theme(axis.text.y = element_text(size = ifelse(location == "Bonney", 12, 0)),
+            axis.text.x = element_text(size = 12),  # Restoring x-axis text
+            axis.title.x = element_blank(),  # Removing x-axis title
+            axis.title.y = element_text(size = ifelse(location == "Bonney", 14, 0)),
+            panel.grid.minor.x = element_blank(),
+            panel.grid.major.x = element_blank())
+
+    # Apply significance groupings **only if they exist**
+    sig_grp_key <- paste(location, var, sep = "_")
+    sig_grp <- sig_groups_emmeans_exp[[sig_grp_key]]
+
+    if (!is.null(sig_grp) && nrow(sig_grp) > 0) {
+      label.y <- y_limits[2] - diff(y_limits) * 0.001  # Ensures labels stay inside y-axis limits
+
+      p <- p + geom_text(data = sig_grp, aes(x = treatment, y = label.y, label = sig_grps), 
+                         size = 4, fontface = "bold", color = "black")
+    }
+
+    return(p)
+  })
+
+  row_plots <- row_plots[!sapply(row_plots, is.null)]  # Remove NULL plots
+
+  if (length(row_plots) > 0) {
+    single_row_plot <- plot_grid(plotlist = row_plots, nrow = 1, align = "hv")
+    
+    # Define file name dynamically
+    file_name <- paste0("MDV-soils-nutrient-limitation-Expr-", var, "_combined")
+
+    # Save individual row plots
+    ggsave(filename = file.path(sub.directory.1.1.2.2.fp, paste0(file_name, ".jpeg")), plot = single_row_plot, width = 10, height = 6, dpi = 300)
+    ggsave(filename = file.path(sub.directory.1.1.2.2.fp, paste0(file_name, ".pdf")), plot = single_row_plot, width = 10, height = 6)
+    ggsave(filename = file.path(sub.directory.1.1.2.2.fp, paste0(file_name, ".svg")), plot = single_row_plot, width = 10, height = 6)
+
+    print(single_row_plot)  # Print each plot separately
+  }
+}
+
+```
+
+```{r plot c, n, cn for combine}
+# Initialize list to store plots
+treatment_plots_cn_2 <- list()
+
+# Iterate over variables and locations
+for (var in selected_vars_cn) {
+  for (location_name in c("Bonney", "Hoare", "Fryxell")) {
+
+    # Subset location
+    df_location_filtered <- df_cn_filtered %>% filter(Location == location_name)
+
+    if (!(var %in% colnames(df_location_filtered))) {
+      print(paste("Skipping variable", var, "in location", location_name))
+      next
+    }
+
+    # Subset response variable
+    df_var_filtered <- df_location_filtered %>% filter(!is.na(.data[[var]]))
+
+    if (nrow(df_var_filtered) == 0) {
+      print(paste("Skipping variable", var, "in location", location_name))
+      next
+    }
+
+    # Calculate mean and se
+    summary_stats <- df_var_filtered %>%
+      group_by(treatment) %>%
+      summarise(mean = mean(.data[[var]], na.rm = TRUE),
+                se = sd(.data[[var]], na.rm = TRUE) / sqrt(n()),
+                .groups = "drop")
+
+    # Set color scheme
+    #colors <- custom_treatment_colors_list[[location_name]]
+
+    shades <- custom_treatment_shades_list[[location_name]]
+    
+    # Determine title based on variable and location
+    plot_title <- case_when(
+      var == "umol.C_g.soil" ~ paste(location_name, "Basin"),
+      var %in% c("umol.N_g.soil", "C_to_N") ~ "",
+      TRUE ~ location_name
+    )
+
+    # Adjust y-axis settings properly
+    if (var %in% c("umol.C_g.soil", "umol.N_g.soil", "C_to_N") & location_name %in% c("Hoare", "Fryxell")) {
+      y_axis_title <- element_blank()
+      y_axis_text <- element_blank()
+    } else {
+      y_axis_title <- element_text(size = 16)
+      y_axis_text <- element_text(size = 14)
+    }
+
+    # Adjust x-axis text
+    if (var %in% c("umol.C_g.soil", "umol.N_g.soil")) {
+      x_axis_text <- element_blank()
+    } else {
+      x_axis_text <- element_text(size = 12)
+    }
+
+    # Create the plot
+    p <- ggplot(df_var_filtered, aes(x = treatment, y = .data[[var]], fill = treatment)) +
+      geom_jitter(size = 4, shape = 21, color = "black", width = 0.1, alpha = 0.55) +
+      geom_pointrange(data = summary_stats, 
+                      aes(x = treatment, y = mean, ymin = mean - se, ymax = mean + se, fill = treatment),
+                      size = 2, shape = 21, color = "black", stroke = 0.5, alpha = 0.35) +
+      labs(title = plot_title, y = y_axis_labels[[var]]) +
+      guides(fill = "none") +
+      scale_fill_manual(values = shades) +
+      scale_y_continuous(limits = y_axis_limits[[var]], breaks = y_breaks[[var]]) +
+      theme_bw() +
+      theme(
+        plot.title = element_text(size = 14),
+        axis.title.x = element_blank(),
+        axis.text.x = x_axis_text,
+        axis.title.y = y_axis_title,
+        axis.text.y = y_axis_text,
+        axis.ticks.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank()
+      )
+
+    # Apply significance groupings **only if they exist**
+    sig_grp_key <- paste(location_name, var, sep = "_")
+    sig_grp <- sig_groups_emmeans_exp[[sig_grp_key]]
+
+    if (!is.null(sig_grp) && nrow(sig_grp) > 0) {
+      # Calculate constant y-position for the labels
+      label.y <- y_axis_limits[[var]][2] - (y_axis_limits[[var]][2] * 0.01)
+      # Pass y outside of aes() to ensure it’s a fixed constant for this plot.
+      p <- p + geom_text(data = sig_grp, aes(x = treatment, label = sig_grps),
+                         y = label.y, size = 5, color = "black")
+    }
+
+    # Use simplified key for storing in list
+    location_var <- paste(location_name, var, sep = "_")
+    treatment_plots_cn_2[[location_var]] <- p
+
+    # Display each plot (optional)
+    print(p)
+  }
+}
+
+```
+
+```{r plot combine cn}
+# Top row: "umol.C_g.soil" plots
+plot_TOC <- treatment_plots_cn_2[["Bonney_umol.C_g.soil"]] +
+  treatment_plots_cn_2[["Hoare_umol.C_g.soil"]] +
+  treatment_plots_cn_2[["Fryxell_umol.C_g.soil"]] +
+  plot_layout(ncol = 3)
+
+# Middle row: "umol.N_g.soil" plots
+plot_TN <- treatment_plots_cn_2[["Bonney_umol.N_g.soil"]] +
+  treatment_plots_cn_2[["Hoare_umol.N_g.soil"]] +
+  treatment_plots_cn_2[["Fryxell_umol.N_g.soil"]] +
+  plot_layout(ncol = 3)
+
+# Bottom row: "C_to_N" plots
+plot_C_to_N <- treatment_plots_cn_2[["Bonney_C_to_N"]] +
+  treatment_plots_cn_2[["Hoare_C_to_N"]] +
+  treatment_plots_cn_2[["Fryxell_C_to_N"]] +
+  plot_layout(ncol = 3)
+
+# Stack the three rows vertically
+combined_cn_all <- plot_TOC / plot_TN / plot_C_to_N
+
+# Print the combined plot to the console
+print(combined_cn_all)
+
+# Define the file path dynamically
+file_path <- file.path(sub.directory.1.1.2.2.fp,
+                       paste0("MDV-soils-nutrient-limitation-Expr_CN_combined_plot"))
+
+# Save the combined plot in multiple formats
+ggsave(filename = paste0(file_path, ".jpeg"), plot = combined_cn_all, width = 8.5, height = 11, dpi = 300)
+ggsave(filename = paste0(file_path, ".pdf"), plot = combined_cn_all, width = 8.5, height = 11)
+ggsave(filename = paste0(file_path, ".svg"), plot = combined_cn_all, width = 8.5, height = 11)
+
+```
+
+### DNA concentration    
+```{r define objects p, dna}
+# Define selected variables for df.cn.2
+selected_vars_dna <- c("ngDNA_per_g_soil")
+
+# Define fixed y-axis ranges
+y_axis_limits_d <- list(
+  "ngDNA_per_g_soil" = c(0, 5000)
+)
+
+y_breaks_d <- list(
+  "ngDNA_per_g_soil" = c(0, 1000, 2000, 3000, 4000, 5000)
+)
+
+```
+
+```{r plot dna}
+# Filter dataset for the study
+df_m_filtered <- m.3 %>%
+  filter(Study == "Solon" & !is.na(treatment)) %>%
+  mutate(treatment = factor(treatment, levels = c("bulk", "CTRL", "N", "P", "NP")))
+
+# Initialize list to store plots
+treatment_plots_dna <- list()
+
+for (var in selected_vars_dna) {
+  for (location_name in c("Bonney", "Hoare", "Fryxell")) {
+    df_location_filtered <- df_m_filtered %>% filter(Location == location_name)
+
+    if (!(var %in% colnames(df_location_filtered))) {
+      print(paste("Skipping variable", var, "in location", location_name, "since it is not found in the dataframe"))
+      next
+    }
+
+    df_var_filtered <- df_location_filtered %>% filter(!is.na(.data[[var]]))
+
+    if (nrow(df_var_filtered) == 0) {
+      print(paste("Skipping variable", var, "in location", location_name, "since no valid data remains after filtering"))
+      next
+    }
+
+    summary_stats <- df_var_filtered %>%
+      group_by(treatment) %>%
+      summarise(mean = mean(.data[[var]], na.rm = TRUE),
+                se = sd(.data[[var]], na.rm = TRUE) / sqrt(n()), .groups = "drop")
+
+    colors <- custom_treatment_colors_list[[location_name]]
+
+    # Determine y-axis limits dynamically
+    y_range <- range(df_var_filtered[[var]], na.rm = TRUE)
+    y_padding <- diff(y_range) * 0.15
+    y_min <- y_range[1] - y_padding
+    y_max <- y_range[2] + y_padding
+
+    p <- ggplot(df_var_filtered, aes(x = treatment, y = .data[[var]], fill = treatment)) +
+      geom_jitter(size = 4, shape = 21, color = "black", width = 0.1, alpha = 0.55) +
+      geom_pointrange(data = summary_stats, aes(x = treatment, y = mean, ymin = mean - se, ymax = mean + se, fill = treatment),
+                      size = 2, shape = 21, color = "black", stroke = 0.5, alpha = 0.35) +
+      labs(title = paste(location_name), x = "", y = y_axis_labels[[var]]) +
+      guides(fill = "none") +
+      scale_fill_manual(values = colors) +
+      theme_bw() +
+      theme(panel.grid.minor.x = element_blank(),
+            panel.grid.major.x = element_blank(),
+            panel.grid.minor.y = element_blank())
+
+    # Apply significance groupings **only if they exist**
+    sig_grp_key <- paste(location_name, var, sep = "_")
+    
+    if (sig_grp_key == "Bonney_ngDNA_per_g_soil") {
+      # Manually enter significance groupings
+      sig_grp <- data.frame(
+        treatment = c("bulk", "CTRL", "N", "P", "NP"),
+        sig_grps = c("a", "ab", "b", "c", "d")  # Replace these with your manual assignments
+      )
+    } else {
+      sig_grp <- sig_groups_emmeans_exp[[sig_grp_key]]
+    }
+
+    if (!is.null(sig_grp) && nrow(sig_grp) > 0) {
+      label.y <- y_max  # Place significance groupings at the very top of the graph
+
+      p <- p + geom_text(data = sig_grp, aes(x = treatment, y = label.y, label = sig_grps),
+                         size = 6, fontface = "bold", color = "black")
+    }
+
+    # Store plot in list and print it
+    plot_name <- paste(location_name, var, sep = "_")
+    treatment_plots_dna[[plot_name]] <- p
+    print(p)
+
+    # Save plot in multiple formats with correct names
+    file_name <- paste0("MDV-soils-nutrient-limitation-Expr-", var, "_combined")
+
+    ggsave(filename = file.path(sub.directory.1.1.2.2.2.fp, paste0(file_name, ".jpeg")), plot = p, width = 10, height = 6, dpi = 300)
+    ggsave(filename = file.path(sub.directory.1.1.2.2.2.fp, paste0(file_name, ".pdf")), plot = p, width = 10, height = 6)
+    ggsave(filename = file.path(sub.directory.1.1.2.2.2.fp, paste0(file_name, ".svg")), plot = p, width = 10, height = 6)
+  }
+}
+
+```
+
+```{r plot dna for combine}
+# Initialize list to store plots
+treatment_plots_dna_2 <- list()
+
+# Iterate over variables and locations
+for (var in selected_vars_dna) {
+  for (location_name in c("Bonney", "Hoare", "Fryxell")) {
+
+    # Subset location
+    df_location_filtered <- df_m_filtered %>% filter(Location == location_name)
+
+    if (!(var %in% colnames(df_location_filtered))) {
+      print(paste("Skipping variable", var, "in location", location_name))
+      next
+    }
+
+    # Subset response variable
+    df_var_filtered <- df_location_filtered %>% filter(!is.na(.data[[var]]))
+
+    if (nrow(df_var_filtered) == 0) {
+      print(paste("Skipping variable", var, "in location", location_name))
+      next
+    }
+
+    # Calculate mean and se
+    summary_stats <- df_var_filtered %>%
+      group_by(treatment) %>%
+      summarise(mean = mean(.data[[var]], na.rm = TRUE),
+                se = sd(.data[[var]], na.rm = TRUE) / sqrt(n()),
+                .groups = "drop")
+
+    # Set color scheme
+    colors <- custom_treatment_colors_list[[location_name]]
+
+    # Determine title based on variable and location
+    plot_title <- paste(location_name, "Basin")
+
+    # Adjust y-axis settings properly
+    if (var %in% c("ngDNA_per_g_soil") & location_name %in% c("Hoare", "Fryxell")) {
+      y_axis_title <- element_blank()
+      y_axis_text <- element_blank()
+    } else {
+      y_axis_title <- element_text(size = 16)
+      y_axis_text <- element_text(size = 14)
+    }
+
+    # Create the plot
+    p <- ggplot(df_var_filtered, aes(x = treatment, y = .data[[var]], fill = treatment)) +
+      geom_jitter(size = 4, shape = 21, color = "black", width = 0.1, alpha = 0.55) +
+      geom_pointrange(data = summary_stats, 
+                      aes(x = treatment, y = mean, ymin = mean - se, ymax = mean + se, fill = treatment),
+                      size = 2, shape = 21, color = "black", stroke = 0.5, alpha = 0.35) +
+      labs(title = plot_title, y = y_axis_labels[[var]]) +
+      guides(fill = "none") +
+      scale_fill_manual(values = colors) +
+      scale_y_continuous(limits = y_axis_limits_d[[var]], breaks = y_breaks_d[[var]]) +
+      theme_bw() +
+      theme(
+        plot.title = element_text(size = 14),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(size = 14),
+        axis.title.y = y_axis_title,
+        axis.text.y = y_axis_text,
+        axis.ticks.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank()
+      )
+
+    # Apply significance groupings **only if they exist**
+    sig_grp_key <- paste(location_name, var, sep = "_")
+    
+    if (sig_grp_key == "Bonney_ngDNA_per_g_soil") {
+      # Manually enter significance groupings
+      sig_grp <- data.frame(
+        treatment = c("bulk", "CTRL", "N", "P", "NP"),
+        sig_grps = c("a", "ab", "b", "c", "d")  # Replace these with your manual assignments
+      )
+    } else {
+      sig_grp <- sig_groups_emmeans_exp[[sig_grp_key]]
+    }
+
+    if (!is.null(sig_grp) && nrow(sig_grp) > 0) {
+      label.y <- y_axis_limits_d[[var]][2] - (y_axis_limits_d[[var]][2] * 0.01)
+
+      p <- p + geom_text(data = sig_grp, aes(x = treatment, label = sig_grps), y = label.y, 
+                         size = 6, fontface = "bold", color = "black")
+    }
+
+
+    # Use simplified key for storing in list
+    location_var <- paste(location_name, var, sep = "_")
+    treatment_plots_dna_2[[location_var]] <- p
+
+    # Display each plot (optional)
+    print(p)
+  }
+}
+
+```
+
+```{r plot combine dna}
+#combine plots
+combined_dna_all <- treatment_plots_dna_2[["Bonney_ngDNA_per_g_soil"]] + treatment_plots_dna_2[["Hoare_ngDNA_per_g_soil"]] + treatment_plots_dna_2[["Fryxell_ngDNA_per_g_soil"]] + plot_layout(ncol = 3)
+
+# Print the combined plot to the console
+print(combined_dna_all)
+
+# Define the file path dynamically
+file_path <- file.path(sub.directory.1.1.2.2.fp,
+                       paste0("MDV-soils-nutrient-limitation-Expr_DNA_combined_plot"))
+
+# Save the combined plot in multiple formats
+ggsave(filename = paste0(file_path, ".jpeg"), plot = combined_dna_all, width = 9, height = 6, dpi = 300)
+ggsave(filename = paste0(file_path, ".pdf"), plot = combined_dna_all, width = 9, height = 6)
+ggsave(filename = paste0(file_path, ".svg"), plot = combined_dna_all, width = 9, height = 6)
+
+```
+
+## End of Script  

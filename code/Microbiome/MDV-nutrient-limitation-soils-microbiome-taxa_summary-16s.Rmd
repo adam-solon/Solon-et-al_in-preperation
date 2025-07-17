@@ -1,0 +1,657 @@
+---
+title: "McMurdo Dry Valleys Nutrient Limitation"
+subtitle: "  \n Microbiome - 16S Taxonomic Summary"
+author: "Adam J. Solon"
+date: "`r Sys.Date()`"
+#output: html_document
+output: 
+  pdf_document:
+    toc: TRUE
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+    keep_md: true
+fontsize: 12pt
+#editor_options: 
+#  chunk_output_type: console
+---
+  
+# Script Summary  
+This script summarizes the taxonomic composition of photoautotrophs of the bacteria and archaea (16S SSU rRNA gene), i.e., cyanobacteria, of samples from sediments collected in Taylor Vallye of the McMurdo Dry VAlleys.  The samples labelled 'bulk' are a homogenized mixtures of sediments collected in situ, while samples labelled 'CTRL', "N", "P", and "NP" are sediments exposed to a lab experiment with additions of nitrogen(N), phosphorus(P), both nutrients (NP), or neither (CTRL).
+
+### Steps of this pipeline:  
+### Steps of this pipeline:  
+1.  Create and organize directories
+2.  Load R packages
+3.  Input files
+4.  Format Files
+5.  Cyanobacteria summary - rarefied data
+6. Save files and figures
+  
+```{r echo = FALSE, include = FALSE, set.seed(461)}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(cache = TRUE)
+
+```
+
+# Begin pipeline  
+```{r, echo = FALSE, include = FALSE}
+# Change identifiers to your system and file naming. 
+user <- "F:"
+directory <- "/Projects"
+project <- "/CryoHoles/Studies"
+study <- "/Soils-Nutrient-Limitation-Growth_Solon-et-al"
+
+sub.directory.2 <- "/analyses"
+sub.directory.2.1 <- "/microbiome"
+sub.directory.2.1.1 <- "/amplicons"
+sub.directory.2.1.1.1 <- "/16s"
+sub.directory.2.1.1.1.1 <- "/input"
+sub.directory.2.1.1.1.2 <- "/taxonomic_summary"
+sub.directory.2.1.1.1.2.1 <- "/stats"
+sub.directory.2.1.1.1.2.2 <- "/plots"
+
+```
+
+### Set pathways and create directories  
+
+```{r set paths for pipeline}
+# First define the project and project directories. 
+
+# Create pathway for pipeline
+###################################################
+path.fp <- paste0(user, directory, project, study)
+if (!dir.exists(path.fp)) dir.create(path.fp)
+
+```
+
+```{r set paths for analyses}
+#sub.directory.2 analyses
+###################################################
+sub.directory.2.fp <- paste0(path.fp, sub.directory.2)
+if (!dir.exists(sub.directory.2.fp)) dir.create(sub.directory.2.fp)
+
+# Create sub-directory  microbiome
+###################################################
+sub.directory.2.1.fp <- paste0(sub.directory.2.fp, sub.directory.2.1)
+if (!dir.exists(sub.directory.2.1.fp)) dir.create(sub.directory.2.1.fp)
+
+# Create sub-directory amplicons
+###################################################
+sub.directory.2.1.1.fp <- paste0(sub.directory.2.1.fp, sub.directory.2.1.1)
+if (!dir.exists(sub.directory.2.1.1.fp)) dir.create(sub.directory.2.1.1.fp)
+
+# Create sub-directory 16s
+###################################################
+sub.directory.2.1.1.1.fp <- paste0(sub.directory.2.1.1.fp, sub.directory.2.1.1.1)
+if (!dir.exists(sub.directory.2.1.1.1.fp)) dir.create(sub.directory.2.1.1.1.fp)
+
+# Create sub-directory input
+###################################################
+sub.directory.2.1.1.1.1.fp <- paste0(sub.directory.2.1.1.1.fp, sub.directory.2.1.1.1.1)
+if (!dir.exists(sub.directory.2.1.1.1.1.fp)) dir.create(sub.directory.2.1.1.1.1.fp)
+
+# Create sub-directory beta diversity
+###################################################
+sub.directory.2.1.1.1.2.fp <- paste0(sub.directory.2.1.1.1.fp, sub.directory.2.1.1.1.2)
+if (!dir.exists(sub.directory.2.1.1.1.2.fp)) dir.create(sub.directory.2.1.1.1.2.fp)
+
+# Create sub-directory stats
+###################################################
+sub.directory.2.1.1.1.2.1.fp <- paste0(sub.directory.2.1.1.1.2.fp, sub.directory.2.1.1.1.2.1)
+if (!dir.exists(sub.directory.2.1.1.1.2.1.fp)) dir.create(sub.directory.2.1.1.1.2.1.fp)
+
+# Create sub-directory plots
+###################################################
+sub.directory.2.1.1.1.2.2.fp <- paste0(sub.directory.2.1.1.1.2.fp, sub.directory.2.1.1.1.2.2)
+if (!dir.exists(sub.directory.2.1.1.1.2.2.fp)) dir.create(sub.directory.2.1.1.1.2.2.fp)
+
+```
+
+### Session Information  
+```{r Install and load packages}
+# install.packages("tidyverse")
+# install.packages("knitr")
+# install.packages("dplyr")
+# install.packages("phyloseq")
+# install.packages("grid")
+# install.packages("gridExtra")
+# install.packages("patchwork")
+# install.packages("car")
+# install.packages("nortest")
+# install.packages("dunn.test")
+
+library(knitr); packageVersion("knitr")
+library(tidyverse); packageVersion("tidyverse")
+library(dplyr); packageVersion("dplyr")
+library(phyloseq); packageVersion("phyloseq")
+library(grid); packageVersion("grid")
+library(gridExtra); packageVersion("gridExtra")
+library(patchwork); packageVersion("patchwork")
+library(car); packageVersion("car")
+library(nortest); packageVersion("nortest")
+library(dunn.test); packageVersion("dunn.test")
+
+```  
+
+* r version: `r getRversion()`
+* RStudio version: `r rstudioapi::versionInfo()$version`
+* r packages:  
+  knitr, `r packageVersion("knitr")`  
+  tidyverse, `r packageVersion("tidyverse")`  
+  dplyr, `r packageVersion("dplyr")`  
+  phyloseq, `r packageVersion("phyloseq")`  
+  grid, `r packageVersion("grid")`  
+  gridExtra, `r packageVersion("gridExtra")`  
+  patchwork, `r packageVersion("patchwork")`
+  car, `r packageVersion("car")`   
+  nortest, `r packageVersion("nortest")`   
+  dunn.test, `r packageVersion("dunn.test")`  
+  
+### Input files
+1. phyloseq object from r script - 'MDV-nutrient-limitation-soils-microbiome-normalization-transformation-16s.Rmd' 
+
+```{r import phyloseq object}
+
+#import phyloseq object with rarefaction of sequence counts (i.e., repeated random subsampling without replacement wiht same sequence depth for each sample) 
+phy.r.2 <- readRDS(paste0(sub.directory.2.1.1.1.1.fp, "/phy.r.2.rds"))
+
+```
+
+```{r format}
+#subset cyanobacteria (i.e., known bacterial photoautotrophs)
+phy.r.cyano <- subset_taxa(phy.r.2, Phylum == "Cyanobacteria")
+
+#subset photosynthetic cyanobacteria (remove non-photosynthethic class Sericytochromatia or Melainabacteria or unassigned)
+phy.r.cyano.1 <- subset_taxa(phy.r.cyano, Class == "Oxyphotobacteria")
+
+#transform rarefaction 'counts' into relative abundance percentage
+phy.r.cyano.2 <- transform_sample_counts(phy.r.cyano.1, function(x) x / sum(x) )
+
+```
+
+### Plot Family  
+```{r stacked barplot family}
+#plot using ggplot
+#convert phyloseq object into data.frame
+df.cyano.r <- psmelt(phy.r.cyano.2)
+  
+# Remove rows where Abundance is 0
+df.cyano.r.1 <- df.cyano.r %>%
+  filter(Abundance != 0)
+
+#summarize relative abundance by family
+df.cyano.fam <- df.cyano.r.1 %>%
+  group_by(Sample, Family) %>%
+  summarize(
+    location = first(location),
+    treatment = first(treatment),
+    FamSum = sum(Abundance, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+#convert abundance into 0-100%
+df.cyano.fam$FamSum <- df.cyano.fam$FamSum * 100
+
+#unassigned to other
+df.cyano.fam <- df.cyano.fam %>%
+  mutate(Family = case_when(
+    Family == "Oxyphotobacteria_Class" ~ "other",
+    Family == "Unknown_Family" ~ "other",
+    TRUE ~ Family
+  ))
+
+#set all low abundance as other
+df.cyano.fam$Family[df.cyano.fam$FamSum < 1.0] <- "other"
+
+#create a vector with all genera
+vec.fam.cyano <- unique(df.cyano.fam$Family)
+
+#set as dataframe
+df.cyano.fam.1 <- as.data.frame(df.cyano.fam)
+
+#reclassigy as factor
+df.cyano.fam.1 <- df.cyano.fam.1 %>%
+  mutate(Family = as.factor(Family))
+
+# Reorder the 'location' factor
+df.cyano.fam.1$location <- factor(df.cyano.fam.1$location, 
+                              levels = c("Bonney", "Hoare", "Fryxell"))
+
+# Reorder 'treatment'
+df.cyano.fam.1$treatment <- factor(df.cyano.fam.1$treatment,
+                               levels = c("bulk", "CTRL", "N", "P", "NP"))
+
+#how many unique genera
+num.fam.cyano <- nlevels(df.cyano.fam.1$Family)
+
+#reorder factor levels of Phylum
+df.cyano.fam.1$Family <- factor(df.cyano.fam.1$Family, levels=c("Nostocaceae",
+                                                                "Nodosilineaceae",
+                                                                "Phormidesmiaceae",
+                                                                "Phormidiaceae",
+                                                                "Leptolyngbyaceae",
+                                                                "Chroococcidiopsaceae",
+                                                                "Pseudanabaenaceae",
+                                                                "other"))
+
+```
+       
+```{r plot family}
+#create facet labels
+facet_labels <- c(
+  "Bonney" = "Bonney Basin",
+  "Hoare" = "Hoare Basin",
+  "Fryxell" = "Fryxell Basin"
+)
+
+#create a color palette
+pal.1 <- c('#054907', "#0072B2", '#F0E68C', "#B8860B", '#FFA500', '#FFC0CB', '#01153E', '#C5C9C7') 
+
+
+# Create the bar plot
+p.fam.face <- ggplot(data = df.cyano.fam.1, aes(x = Sample, y = FamSum, fill = Family)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = pal.1) +
+  scale_y_continuous(expand = c(0,0)) +
+  labs(x = "", y = "Relative Abundance (%)") +
+  facet_wrap(~ location + treatment, nrow = 3, ncol = 5, scales = "free_x", labeller = labeller(location = facet_labels)) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    legend.background = element_rect(fill = "grey90", colour = "grey50", size = 0.5),
+    axis.text.x = element_blank(),
+    strip.text.x = element_text(size = 6, face = "bold")
+  ) +
+  guides(fill = guide_legend(nrow = 4))
+
+#display
+p.fam.face
+
+```
+
+```{r plot fam bn}
+#subset for bonney
+df.cyano.fam.bn <- subset(df.cyano.fam.1, location == "Bonney")
+
+#create a color palette
+pal.bn <- c('#054907', "#0072B2", '#F0E68C', "#B8860B", "#7B68EE", '#FFA500', '#01153E', '#C5C9C7') 
+
+# Create the bar plot
+p.fam.bn <- ggplot(data = df.cyano.fam.bn, aes(x = Sample, y = FamSum, fill = Family)) +
+  #geom_bar(stat = "identity", position = "stack", color = "black") +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = pal.bn) +
+  scale_y_continuous(expand = c(0,0)) +
+  labs(title = "", subtitle = "Bonney Basin", fill = "Taxa") +
+  guides(fill = guide_legend(nrow = 2)) +
+  facet_wrap(~ treatment, ncol = 5, scales = "free_x") +
+  theme_bw() +
+  theme(plot.subtitle = element_text(size = 20),
+          axis.title.x = element_blank(),
+          axis.text.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.y = element_text(size = 18),
+          legend.position = "bottom",
+          legend.background = element_rect(fill = "grey90", colour = "grey50", size = 0.5),
+          legend.text = element_text(size = 12),
+          legend.title = element_text(size = 14), 
+          strip.text.x = element_text(size = 14)
+  )
+
+#display
+p.fam.bn
+
+```
+
+```{r plot fam hr}
+#subset for hoare
+df.cyano.fam.hr <- subset(df.cyano.fam.1, location == "Hoare")
+
+#create a color palette
+pal.hr <- c('#054907', "#0072B2", '#F0E68C', "#B8860B", "#7B68EE", '#FFA500', '#C5C9C7') 
+ 
+# Create the bar plot
+p.fam.hr <- ggplot(data = df.cyano.fam.hr, aes(x = Sample, y = FamSum, fill = Family)) +
+  #geom_bar(stat = "identity", position = "stack", color = "black") +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = pal.hr) +
+  scale_y_continuous(expand = c(0,0)) +
+  labs(title = "Hoare Basin", y = "Relative Abundance (%)", fill = "Taxa") +
+  guides(fill = guide_legend(nrow = 7)) +
+  facet_wrap(~ treatment, ncol = 5, scales = "free_x") +
+  theme_bw() +
+  theme(plot.title = element_text(size = 20), 
+          axis.title.x = element_blank(),
+          axis.text.x = element_blank(),
+          axis.title.y = element_text(size = 22),
+          axis.text.y = element_text(size = 18),
+          legend.position = "none",
+          legend.background = element_rect(fill = "grey90", colour = "grey50", size = 0.5),
+          strip.text.x = element_text(size = 14)
+  )
+
+#display
+p.fam.hr
+
+```
+
+```{r plot fam fx}
+#subset for fryxell
+df.cyano.fam.fx <- subset(df.cyano.fam.1, location == "Fryxell")
+
+# Define custom labels for the x-axis
+fx_labels <- c(
+  "FXM_01" = "C.1", "FXM_02" = "C.2", "FXM_06" = "C.3", "FXM_08" = "C.4", "FXM_14" = "C.5",
+  "FXM_04" = "N.1", "FXM_11" = "N.2", "FXM_15" = "N.3", "FXM_16" = "N.4", "FXM_20" = "N.5",
+  "FXM_05" = "P.1", "FXM_07" = "P.2", "FXM_09" = "P.3", "FXM_18" = "P.4", "FXM_19.2" = "P.5",
+  "FXM_10" = "NP.1", "FXM_03" = "NP.2", "FXM_12" = "NP.3", "FXM_13" = "NP.4", "FXM_17" = "NP.5",
+  "FX_Bulk_A" = "B.1", "FX_Bulk_B" = "B.2", "FX_Bulk_C" = "B.3", "FX_Bulk_D" = "B.4", 
+  "FX_Bulk_E" = "B.5", "FX_Bulk_F" = "B.6"
+)
+
+#create a color palette
+pal.fx <- c('#054907', "#0072B2", '#F0E68C', "#B8860B", "#7B68EE", '#FFA500', '#C5C9C7') 
+
+# Create the bar plot
+p.fam.fx <- ggplot(data = df.cyano.fam.fx, aes(x = Sample, y = FamSum, fill = Family)) +
+  #geom_bar(stat = "identity", position = "stack", color = "black") +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = pal.fx) +
+  scale_y_continuous(expand = c(0,0)) +
+  scale_x_discrete(labels = function(x) fx_labels[x]) + # Apply custom labels
+  labs(title = "Fryxell Basin", x = "Microcosms", y = "", fill = "Taxa") +
+  guides(fill = guide_legend(nrow = 7)) +
+  facet_wrap(~ treatment, ncol = 5, scales = "free_x") +
+  theme_bw() +
+  theme(plot.title = element_text(size = 20), 
+          axis.title.x = element_text(size = 22),
+          axis.text.x = element_text(size = 10),
+          axis.title.y = element_blank(),
+          axis.text.y = element_text(size = 18),
+          legend.position = "none",
+          legend.background = element_rect(fill = "grey90", colour = "grey50", size = 0.5),
+          strip.text.x = element_text(size = 14)
+  )
+
+#display
+p.fam.fx
+
+```
+
+```{r}
+# Extract the legend from bonney plot
+legend <- ggplotGrob(p.fam.bn)$grobs[[which(sapply(ggplotGrob(p.fam.bn)$grobs, function(x) x$name) == "guide-box")]]
+
+# Remove legend from bonney 
+p.fam.bn.1 <- p.fam.bn + theme(legend.position = "none")
+
+# Convert legend into a patchwork-compatible element
+legend_patch <- wrap_elements(full = legend)
+
+#combine plots
+combined_plot <- (legend_patch / p.fam.bn.1 / p.fam.hr / p.fam.fx) + 
+  plot_layout(heights = c(1, 3, 3, 3))  # Adjust the last item's height
+
+#combined_plot <- (p.fam.bn.1 / p.fam.hr / p.fam.fx / legend_patch) + 
+ # plot_layout(heights = c(3, 3, 3, 1))  # Adjust the last item's height
+
+# Display the combined plot
+print(combined_plot)
+
+# Define file path for saving
+file_path <- file.path(sub.directory.2.1.1.1.2.2.fp, "MDV-nutrient-limitation-soils-Taxa-Summary-16s-combined")
+
+# Save combined plot in multiple formats
+ggsave(filename = paste0(file_path, ".jpeg"), plot = combined_plot, width = 11, height = 8.5, dpi = 300)
+ggsave(filename = paste0(file_path, ".pdf"), plot = combined_plot, width = 11, height = 8.5)
+ggsave(filename = paste0(file_path, ".svg"), plot = combined_plot, width = 11, height = 8.5)
+
+```
+
+```{r combine plots}
+# Modify each plot to remove extra margins and spacing
+p.fam.bn.1 <- p.fam.bn + theme(plot.margin = margin(0, 0, 0, 0))
+p.fam.hr.1 <- p.fam.hr + theme(plot.margin = margin(0, 0, 0, 0))
+p.fam.fx.1 <- p.fam.fx + theme(plot.margin = margin(0, 0, 0, 0))
+
+# Combine the plots into one figure, each in its own row
+p.fam.comb <- p.fam.bn.1 / p.fam.hr.1 / p.fam.fx.1 
+
+# Display 
+p.fam.comb
+
+```
+
+```{r save plots}
+# Define parameters
+file_names <- c("/MDV-nutrient-limitation-soils-taxa-summary-16s-facet", 
+                "/MDV-nutrient-limitation-soils-taxa-summary-16s-combine")
+plots <- list(p.fam.face, p.fam.comb)
+formats <- c("jpeg", "pdf", "svg")
+
+# Loop to save plots
+for (i in seq_along(plots)) {
+  for (format in formats) {
+    ggsave(filename = paste0(sub.directory.2.1.1.1.2.2.fp, file_names[i], ".", format),
+           plot = plots[[i]],
+           device = format,
+           width = 11,
+           height = 8.5)
+  }
+}
+
+```
+
+```{r summary statistics}
+#calculate mean and se
+cyano_fam_sum_stats <- df.cyano.fam.1 %>%
+  group_by(location, treatment, Family) %>%
+  summarise(
+    Family = first(Family),
+    mean_FamSum = round(mean(FamSum, na.rm = TRUE), 1),  # Rounded to 1 decimal
+    standard_error = round(ifelse(n() > 1, sd(FamSum, na.rm = TRUE) / sqrt(n()), 0), 2),  # Rounded to 2 decimals
+    n = n()  # Adds count column
+  ) %>%
+  ungroup()
+
+# Display the updated dataframe
+print(cyano_fam_sum_stats)
+
+# Save the dataframe as CSV
+write.csv(cyano_fam_sum_stats,  file.path(sub.directory.2.1.1.1.2.1.fp, paste0("Cyanobacteria_Family_summary_stats.csv")), row.names = FALSE)
+
+```
+
+```{r inferential statistics}
+# Open a connection to write output
+sink(file.path(sub.directory.2.1.1.1.2.1.fp, "Cyanobacteria_Family_inferential_stats.txt"))
+
+# Loop through unique locations and Families
+for (loc in unique(df.cyano.fam.1$location)) {
+  for (fam in unique(df.cyano.fam.1$Family)) {
+    
+    # Skip Family "other"
+    if (fam == "other") {
+      cat("\nLocation:", loc, "- Skipping Family 'other'\n")
+      next
+    }
+    
+    # Subset data
+    subset_data <- subset(df.cyano.fam.1, location == loc & Family == fam)
+    
+    # Ensure there are enough observations
+    if (nrow(subset_data) < 2) {
+      cat("\nSkipping location:", loc, "Family:", fam, "- Not enough data\n")
+      next
+    }
+    
+    # Ensure treatment has at least two levels
+    if (length(unique(subset_data$treatment)) < 2) {
+      cat("\nSkipping location:", loc, "Family:", fam, "- Treatment has only one level\n")
+      next
+    }
+    
+    # Ensure each treatment group has enough observations
+    if (min(table(subset_data$treatment)) < 2) {
+      cat("\nSkipping location:", loc, "Family:", fam, "- Not enough observations per treatment\n")
+      next
+    }
+    
+    # Ensure variance is not too small
+    if (sd(subset_data$FamSum) < 1e-5) {
+      cat("\nSkipping location:", loc, "Family:", fam, "- Variance is too small\n")
+      next
+    }
+    
+    # Print location and Family
+    cat("\nLocation:", loc, "Family:", fam, "\n")
+    
+    # Perform ANOVA
+    anova_model <- aov(FamSum ~ treatment, data = subset_data)
+    anova_results <- summary(anova_model)
+    
+    # Restore ANOVA output before residual tests
+    cat("\nANOVA Results:\n")
+    print(anova_results)
+
+    # Extract residuals
+    residuals <- residuals(anova_model)
+    
+    # Test for normality
+    shapiro_test <- shapiro.test(residuals)
+    cat("\nShapiro-Wilk Normality Test:\n")
+    print(shapiro_test)
+    
+    # Test for homogeneity of variance
+    levene_test <- leveneTest(FamSum ~ treatment, data = subset_data)
+    cat("\nLevene's Test for Homogeneity of Variance:\n")
+    print(levene_test)
+    
+    # Determine assumption violations
+    normality_violated <- shapiro_test$p.value < 0.05
+    variance_violated <- levene_test$Pr[1] < 0.05
+
+    # If both assumptions are violated, print message only
+    if (normality_violated & variance_violated) {
+      cat("\nLocation:", loc, "Family:", fam, "- Both assumptions are violated\n")
+    } else {
+      if (normality_violated) {
+        cat("\nNormality assumption violated, using Kruskal-Wallis test\n")
+        kruskal_test <- kruskal.test(FamSum ~ treatment, data = subset_data)
+        print(kruskal_test)
+      }
+      
+      if (variance_violated) {
+        cat("\nHomogeneity of variance assumption violated, using Welch's ANOVA\n")
+        welch_anova <- oneway.test(FamSum ~ treatment, data = subset_data, var.equal = FALSE)
+        print(welch_anova)
+      }
+    }
+  }
+}
+
+# Close the output file connection
+sink()
+```
+
+```{r post hoc tukey}
+# Open a connection to write output
+sink(file.path(sub.directory.2.1.1.1.2.1.fp, "Cyanobacteria_Family_post_hoc_tukey.txt"))
+
+# Loop through unique locations and Familys
+for (loc in unique(df.cyano.fam.1$location)) {
+  for (fam in unique(df.cyano.fam.1$Family)) {
+    
+    # Skip Family "other"
+    if (fam == "other") {
+      next
+    }
+    
+    # Subset data
+    subset_data <- subset(df.cyano.fam.1, location == loc & Family == fam)
+    
+    # Ensure treatment has at least two levels
+    if (length(unique(subset_data$treatment)) < 2) {
+      next
+    }
+
+    # Perform ANOVA
+    anova_model <- aov(FamSum ~ treatment, data = subset_data)
+    anova_results <- summary(anova_model)
+    global_p_value <- anova_results[[1]]$`Pr(>F)`[1]
+
+    # Test assumptions
+    residuals <- residuals(anova_model)
+    normality_test <- shapiro.test(residuals)
+    variance_test <- leveneTest(FamSum ~ treatment, data = subset_data)
+
+    normality_met <- normality_test$p.value >= 0.05
+    variance_met <- variance_test$Pr[1] >= 0.05
+
+    # Perform Tukey’s test if ANOVA is significant and assumptions are met
+    if (global_p_value < 0.05 & normality_met & variance_met) {
+      cat("\nLocation:", loc, "Clade:", fam, "- Running Tukey HSD Test\n")
+      tukey_test <- TukeyHSD(anova_model)
+      print(tukey_test)
+    }
+  }
+}
+
+# Close the output file connection
+sink()
+
+```
+
+```{r post hoc unn}
+# Open a connection to write output
+sink(file.path(sub.directory.2.1.1.1.2.1.fp, "Cyanobacteria_Family_post_hoc_dunn.txt"))
+
+# Loop through unique locations and Familys
+for (loc in unique(df.cyano.fam.1$location)) {
+  for (fam in unique(df.cyano.fam.1$Family)) {
+    
+    # Skip Family "other"
+    if (fam == "other") {
+      next
+    }
+
+    # Subset data
+    subset_data <- subset(df.cyano.fam.1, location == loc & Family == fam)
+
+    # Ensure treatment has at least two levels
+    if (length(unique(subset_data$treatment)) < 2) {
+      next
+    }
+
+    # Perform Kruskal-Wallis Test only if assumptions were previously violated
+    residuals <- residuals(aov(FamSum ~ treatment, data = subset_data))
+    normality_test <- shapiro.test(residuals)
+    variance_test <- leveneTest(FamSum ~ treatment, data = subset_data)
+
+    normality_violated <- normality_test$p.value < 0.05
+    variance_violated <- variance_test$Pr[1] < 0.05
+
+    # Ensure Kruskal-Wallis was necessary in the first place
+    if (normality_violated | variance_violated) {
+      kruskal_test <- kruskal.test(FamSum ~ treatment, data = subset_data)
+      
+      # Run Dunn's Test only if Kruskal-Wallis is significant
+      if (kruskal_test$p.value < 0.05) {
+        cat("\nLocation:", loc, "Clade:", fam, "- Running Dunn's Post Hoc Test\n")
+        dunn_results <- dunn.test(subset_data$FamSum, subset_data$treatment, method = "bonferroni")
+        print(dunn_results)
+      }
+    }
+  }
+}
+
+# Close the output file connection
+sink()
+
+```
+
+## End of Script  

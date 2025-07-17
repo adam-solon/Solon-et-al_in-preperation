@@ -1,0 +1,996 @@
+---
+title: "McMurdo Dry Valleys Nutrient Limitation"
+subtitle: "  \n Growth as Surface Cover"
+author: "Adam J. Solon"
+date: "`r Sys.Date()`"
+#output: html_document
+output: 
+  pdf_document:
+    toc: TRUE
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+    keep_md: true
+fontsize: 12pt
+#editor_options: 
+#  chunk_output_type: console
+---
+  
+# Script Summary  
+This script plots surface growth in response to nutrient additions of nitrogen and phosphorus in a factorial design, with sediments collected from mountain slopes in Bonney, Hoare, and Fryxell basins in Taylor Valley of the McMurdo Dry Valleys, Antarctica. Once a week a dissecting microscope at 45x magnification was used to identify the growth of photoautotrophs on the surface of sediments that had been treated with nitrogen, phosphorus, nitrogen & phosphorus, or water-only controls. This script additionally tests how nutrients explained growth (as maximum surface cover).
+
+### Steps of this pipeline:  
+1.  Create and organize directories  
+2.  Load R packages  
+3.  Input files  
+4.  Format Files  
+5.  Summary Statistics - Max Response  
+    a. Calculate average (mean) weekly growth per treatment  
+    b. save files  
+    c. Plots  
+    d. save plots   
+6.  Inferential Statistics   
+    a. Transformation    
+    b. GLM  
+       i. Fit model - Max Response      
+       ii. Residual Analysis    
+       iii. Post hoc tests  
+    c. GLMM  
+       i. Fit model - Repeated Measures     
+       ii. Residual Analysis    
+       iii. Post hoc tests  
+
+```{r echo = FALSE, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+
+```
+
+```{r, echo = FALSE, include = FALSE}
+# Change identifiers to your system and file naming. 
+user <- "F:"
+directory <- "/Projects"
+project <- "/CryoHoles/Studies"
+study <- "/Soils-Nutrient-Limitation-Growth_Solon-et-al"
+
+sub.directory.2 <- "/analyses"
+sub.directory.2.1 <- "/growth"
+sub.directory.2.1.1 <- "/input"
+sub.directory.2.1.2 <- "/surface_cover"
+sub.directory.2.1.2.1 <- "/stats"
+sub.directory.2.1.2.1.1 <- "/summary"
+sub.directory.2.1.2.1.2 <- "/inferential"
+sub.directory.2.1.2.1.2.1 <- "/models"
+sub.directory.2.1.2.1.2.2 <- "/diagnostics"
+sub.directory.2.1.2.2 <- "/plots"
+
+```
+
+### Set pathways and create directories  
+```{r set paths for pipeline}
+# First define the project and project directories. 
+# Create pathway for pipeline
+###################################################
+path.fp <- paste0(user, directory, project, study)
+if (!dir.exists(path.fp)) dir.create(path.fp)
+
+```
+
+```{r set paths for analyses}
+###################################################
+sub.directory.2.fp <- paste0(path.fp, sub.directory.2)
+if (!dir.exists(sub.directory.2.fp)) dir.create(sub.directory.2.fp)
+
+# Create sub-directory  growth
+###################################################
+sub.directory.2.1.fp <- paste0(sub.directory.2.fp, sub.directory.2.1)
+if (!dir.exists(sub.directory.2.1.fp)) dir.create(sub.directory.2.1.fp)
+
+# Create sub-directory  input
+###################################################
+sub.directory.2.1.1.fp <- paste0(sub.directory.2.1.fp, sub.directory.2.1.1)
+if (!dir.exists(sub.directory.2.1.1.fp)) dir.create(sub.directory.2.1.1.fp)
+
+# Create sub-directory  surface cover
+###################################################
+sub.directory.2.1.2.fp <- paste0(sub.directory.2.1.fp, sub.directory.2.1.2)
+if (!dir.exists(sub.directory.2.1.2.fp)) dir.create(sub.directory.2.1.2.fp)
+
+# Create sub-directory  stats
+###################################################
+sub.directory.2.1.2.1.fp <- paste0(sub.directory.2.1.2.fp, sub.directory.2.1.2.1)
+if (!dir.exists(sub.directory.2.1.2.1.fp)) dir.create(sub.directory.2.1.2.1.fp)
+
+# Create sub-directory  summary
+###################################################
+sub.directory.2.1.2.1.1.fp <- paste0(sub.directory.2.1.2.1.fp, sub.directory.2.1.2.1.1)
+if (!dir.exists(sub.directory.2.1.2.1.1.fp)) dir.create(sub.directory.2.1.2.1.1.fp)
+
+# Create sub-directory  inferential
+###################################################
+sub.directory.2.1.2.1.2.fp <- paste0(sub.directory.2.1.2.1.fp, sub.directory.2.1.2.1.2)
+if (!dir.exists(sub.directory.2.1.2.1.2.fp)) dir.create(sub.directory.2.1.2.1.2.fp)
+
+# Create sub-directory  models
+###################################################
+sub.directory.2.1.2.1.2.1.fp <- paste0(sub.directory.2.1.2.1.2.fp, sub.directory.2.1.2.1.2.1)
+if (!dir.exists(sub.directory.2.1.2.1.2.1.fp)) dir.create(sub.directory.2.1.2.1.2.1.fp)
+
+# Create sub-directory  diagnostics
+###################################################
+sub.directory.2.1.2.1.2.2.fp <- paste0(sub.directory.2.1.2.1.2.fp, sub.directory.2.1.2.1.2.2)
+if (!dir.exists(sub.directory.2.1.2.1.2.2.fp)) dir.create(sub.directory.2.1.2.1.2.2.fp)
+
+# Create sub-directory  plots 
+###################################################
+sub.directory.2.1.2.2.fp <- paste0(sub.directory.2.1.2.fp, sub.directory.2.1.2.2)
+if (!dir.exists(sub.directory.2.1.2.2.fp)) dir.create(sub.directory.2.1.2.2.fp)
+
+```
+
+### Load R packages  
+```{r Install and load packages, echo = FALSE, include = FALSE}
+# install.packages("knitr")
+# install.packages("kableExtra")
+# install.packages("tidyverse")
+# install.packages("dplyr")
+# install.packages("patchwork")
+# install.packages("glmmTMB")
+# install.packages("DHARMa")
+# install.packages("emmeans")
+
+library(knitr); packageVersion("knitr")
+library(kableExtra); packageVersion("kableExtra")
+library(tidyverse); packageVersion("tidyverse")
+library(dplyr); packageVersion("dplyr")
+library(patchwork); packageVersion("patchwork")
+library(glmmTMB); packageVersion("glmmTMB")
+library(DHARMa); packageVersion("DHARMa")
+library(emmeans); packageVersion("emmeans")
+
+```
+
+* r version: `r getRversion()`
+* RStudio version: `r rstudioapi::versionInfo()$version`
+* r packages:  
+  knitr, `r packageVersion("knitr")` 
+  kableExtra, `r packageVersion("kableExtra")` 
+  tidyverse, `r packageVersion("tidyverse")` 
+  dplyr, `r packageVersion("dplyr")` 
+  patchwork, `r packageVersion("patchwork")` 
+  glmmTMB, `r packageVersion("glmmTMB")` 
+  DHARMa, `r packageVersion("DHARMa")` 
+  emmeans, `r packageVersion("emmeans")` 
+   
+
+### Input Files
+Required input files:   
+  
+1.  Spreadsheets with percent photoautotrophic surface cover for each sample from each basin. From R markdown file: 
+MDV-nutrient-limitation-soils-microscope-counts.Rmd  
+
+```{r input data files}
+# Count Files
+countFile.1.fp <- paste0(sub.directory.2.1.1.fp, "/BonneyBasin_counts_percent.csv") 
+countFile.2.fp <- paste0(sub.directory.2.1.1.fp, "/HoareBasin_counts_percent.csv") 
+countFile.3.fp <- paste0(sub.directory.2.1.1.fp, "/FryxellBasin_counts_percent.csv") 
+
+#input data
+df.b <- read.csv(countFile.1.fp, header = T)
+df.h <- read.csv(countFile.2.fp, header = T)
+df.f <- read.csv(countFile.3.fp, header = T)
+
+```
+
+# Summary Statistics  
+## Calculate average growth per week per treatment group  
+```{r calculate averages}
+# Remove rows with sampleID BNM_11. This plate was overwatered at the beginning of the experiment and thus subjected to a different condition that none of the other samples incurred.
+df.b.1 <- df.b %>% filter(SampleID != "BNM_11")
+
+# Function to calculate summary statistics
+summarize_primary_cover <- function(df) {
+  df %>%
+    group_by(treatment, days) %>%
+    summarize(
+      mean = mean(primary_cover, na.rm = TRUE),
+      sd = sd(primary_cover, na.rm = TRUE),
+      se = sd / sqrt(n()),
+      ci_lower = mean - qt(0.975, df = n()-1) * se,
+      ci_upper = mean + qt(0.975, df = n()-1) * se,
+      .groups = "drop"
+    ) %>%
+    arrange(treatment, days)
+}
+
+# List of data frames with custom names
+dfs <- list(df.b.1, df.h, df.f) %>%
+  setNames(c("BonneyBasin", "HoareBasin", "FryxellBasin"))
+
+# Apply the function to all dataframes and print as a kableExtra table
+map(dfs, function(df) {
+  summary_df <- summarize_primary_cover(df)
+  print(kable(summary_df, format = "html") %>% kable_styling("striped", full_width = FALSE))
+})
+
+```
+
+### Save files
+```{r save sum stats}
+# Ensure directories exist before saving
+ensure_directory <- function(dir) {
+  if (!dir.exists(dir)) {
+    dir.create(dir, recursive = TRUE)  # Creates directory if it doesn’t exist
+  }
+}
+
+# Function to save summary statistics as CSV
+save_csv <- function(summary_df, basin_name) {
+  
+  # Save summary table as CSV
+  write.csv(summary_df, file = file.path(sub.directory.2.1.2.1.1.fp, paste0(basin_name, "_summary.csv")), row.names = FALSE)
+}
+
+# Compute summary statistics and save CSVs
+walk2(dfs, names(dfs), ~ save_csv(summarize_primary_cover(.x), .y))
+
+```
+
+## Plot average growth as Time Series  
+```{r plot surface cover}
+# Custom fill color mappings for each dataset
+custom_fill <- list(
+  BonneyBasin = c("CTRL" = "tan", "N" = "tan", "P" = "#01665E", "NP" = "#01665E"),
+  HoareBasin = c("CTRL" = "tan", "N" = "#01665E", "P" = "tan", "NP" = "#01665E"),
+  FryxellBasin = c("CTRL" = "tan", "N" = "tan", "P" = "#01665E", "NP" = "#01665E")
+)
+
+# Function to create scatterplot for each dataset
+plot_percent_cover <- function(df, summary_df, title, basin_name) {
+  
+  # Set x-axis limits and breaks dynamically
+  x_limits <- if (basin_name == "BonneyBasin") c(36, 71) else c(29, 64)
+  x_breaks <- seq(x_limits[1], x_limits[2], by = 7)
+  
+  ggplot(df, aes(x = days, y = primary_cover)) +
+    geom_jitter(aes(fill = factor(treatment, levels = c("CTRL", "N", "P", "NP"))), 
+                size = 3, shape = 21, color = "black", width = 0.1, alpha = 0.35) +  # Reduced jitter point size
+    geom_pointrange(data = summary_df, 
+                  aes(x = days, y = mean, ymin = mean - se, ymax = mean + se, fill = factor(treatment, levels = c("CTRL", "N", "P", "NP"))), 
+                  size = 1.5, shape = 21, color = "black", stroke = 0.5, alpha = 0.35) +  # Black outline added to pointrange circles
+    geom_line(data = summary_df, aes(x = days, y = mean, group = treatment), 
+              linetype = "dashed", color = "black", linewidth = 1) +  # **Updated `linewidth` instead of `size`**
+    labs(title = title, x = "Days since Treatment", y = "Surface Cover (%)") +
+    scale_y_continuous(expand = c(0.0, 0.0), limits = c(0, 100), breaks = seq(0, 100, by = 20)) +
+    scale_x_continuous(limits = x_limits, breaks = x_breaks) +  # **Dynamic x-axis**
+    scale_fill_manual(values = custom_fill[[basin_name]]) +  # Apply custom fill colors for jitter points
+    scale_color_manual(values = custom_fill[[basin_name]]) +  # Apply custom colors for pointrange
+    facet_wrap(~ factor(treatment, levels = c("CTRL", "N", "P", "NP")), nrow = 1, ncol = 4) +  # Ordered facets
+    guides(color = "none", fill = "none") +
+    theme_bw() +
+    theme(plot.title = element_text(size = rel(1.8)),  # **Shrank title font size**
+          axis.title.y = element_text(size = 18), 
+          axis.title.x = element_text(size = 18),
+          axis.text.x = element_text(size = 12),
+          axis.text.y = element_text(size = 16),
+          strip.text.x = element_text(size = 13),  # Shrink facet title font size
+          axis.ticks.x.top = element_blank(),
+          axis.text.x.top = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.y = element_blank())
+}
+
+# Apply the plotting function separately for each dataset
+plots <- map2(dfs, names(dfs), ~ plot_percent_cover(.x, summarize_primary_cover(.x), .y, .y))
+
+# Print each plot separately
+print(plots$BonneyBasin)
+print(plots$HoareBasin)
+print(plots$FryxellBasin)
+
+```
+
+### Combine Plots for figure
+```{r combine plots}
+# Modify individual plots
+plot_b <- plots$BonneyBasin + ggtitle("Bonney Basin") + 
+  theme(axis.title.y = element_blank()) +  # Remove y-axis title for top row
+  theme(plot.title = element_text(size = rel(1.3)))  # Shrink title font size
+
+plot_h <- plots$HoareBasin + ggtitle("Hoare Basin") + 
+  theme(plot.title = element_text(size = rel(1.3)))  # Shrink title font size
+
+plot_f <- plots$FryxellBasin + ggtitle("Fryxell Basin") + 
+  theme(axis.title.y = element_blank()) +  # Remove y-axis title for bottom row
+  theme(plot.title = element_text(size = rel(1.3)))  # Shrink title font size
+
+# Remove x-axis title for top and middle rows, keep for bottom
+plot_b <- plot_b + theme(axis.title.x = element_blank())
+plot_h <- plot_h + theme(axis.title.x = element_blank())
+
+# Create a custom legend using ggplot
+legend_plot <- ggplot() +
+  geom_point(aes(x = 2.08, y = 1), shape = 21, size = 5, fill = "#01665E", color = "black", alpha = 0.35) +
+  geom_point(aes(x = 2.08, y = 0), shape = 21, size = 5, fill = "tan", color = "black", alpha = 0.35) +
+  annotate("text", x = 2.11, y = 1, label = "Significant growth", hjust = 0, size = 4.5) +
+  annotate("text", x = 2.11, y = 0, label = "Non-significant growth", hjust = 0, size = 4.5) +
+  xlim(0.8, 2.5) + ylim(-0.5, 1.5) +
+  theme_void()
+
+#combine all plots
+combined_plot <- (legend_plot / plot_b / plot_h / plot_f) + 
+  plot_layout(heights = c(0.5, 3, 3, 3))  # Adjust the last item's height
+
+# Display the combined plot
+print(combined_plot)
+
+```
+
+### Save Plots
+```{r save plots}
+# List of file extensions
+file_types <- c("jpeg", "pdf", "svg")
+
+# Function to save plots with specific dimensions
+save_plot <- function(plot, filename, width, height) {
+  for (file_type in file_types) {
+    file_name <- file.path(sub.directory.2.1.2.2.fp, paste0(filename, ".", file_type))
+    ggsave(file_name, plot, device = file_type, width = width, height = height)
+  }
+}
+
+# Iterate through list and save each individual plot with dimensions 8 x 6
+for (name in names(plots)) {
+  save_plot(plots[[name]], paste0(name, "_surface_cover"), width = 8, height = 6)
+}
+
+# Save the combined plot with dimensions 8.5 x 11
+save_plot(combined_plot, "MDV-nutrient-limitation-soils-combined-surface-cover", width = 8.5, height = 11)
+
+```
+
+# Inferential Statistics  
+Using surface growth (percentage) of each plate, the mean response of each treatment will be tested for differences from the control treatment for both maximum growth response and growth across time.  
+
+### Format  
+```{r format for models}
+# Define a function to process formatting and transformation
+format_dataframe <- function(df, dataset_name) {
+  
+  # Subset to max primary_cover_2 per plate_number
+  df.1 <- df %>%
+    group_by(plate_number) %>%
+    mutate(max_cover = max(primary_cover, na.rm = TRUE)) %>%
+    filter(primary_cover == max_cover) 
+  
+  # Subset to keep only the latest week if more than one week shares the same max cover  
+  df.2 <- df.1 %>%
+    group_by(plate_number) %>%
+    mutate(week = as.numeric(Week)) %>%
+    mutate(max_week = max(week, na.rm = TRUE)) %>% 
+    filter(week == max_week) 
+  
+  # Convert N and P to factors with explicit levels
+  df.2$N <- factor(df.2$N, levels = c(FALSE, TRUE))
+  df.2$P <- factor(df.2$P, levels = c(FALSE, TRUE))
+  df.2$plate_number <- factor(df.2$plate_number)
+
+  return(df.2)
+}
+
+# Process all datasets
+df.b.2 <- format_dataframe(df.b.1, "Bonney")
+df.h.2 <- format_dataframe(df.h, "Hoare")
+df.f.2 <- format_dataframe(df.f, "Fryxell")
+
+```
+
+The beta distribution is suitable for percentages or proportions (i.e., 0 to 1), which is useful for our response variable being percent surface cover from the point-intercept method. However it can not accommodate exact values of 0 or 1 (i.e., a slight transformation is required to add a small value for any exact zeroes). Also, the default link function for beta is logit.  The logit transformation is commonly used to model the mean of a response variable that is bounded between 0 and 1, as it converts proportions (which range from 0 to 1) into values that range from negative infinity to positive infinity, and approximates a linear relationship . NOTE- the coefficients are changes in the log-odds of the outcome (and not raw probability changes).  
+ 
+### Transform response variable (add small value to exact zeroes)  
+```{r format define functions}
+# Define transformation function for zero values (Cribari-Neto & Zeileis, 2010)
+transform.1 <- function(x) {
+  (x * (length(x) - 1) + 0.01) / (length(x))
+}
+
+# Define a function to process formatting and transformation
+transform_dataframe <- function(df, dataset_name) {
+  
+  # Apply transformation to zero values and round appropriately
+  df.1 <- df %>%
+  mutate(primary_cover_2_tf = round(ifelse(primary_cover_2 == 0, 0.005, primary_cover_2), 3))
+
+  return(df.1)
+}
+
+```
+
+```{r format for models}
+#format - max responses
+df.b.3 <- transform_dataframe(df.b.2, "Bonney")
+df.h.3 <- transform_dataframe(df.h.2, "Hoare")
+df.f.3 <- transform_dataframe(df.f.2, "Fryxell")
+
+#format- repeated measures
+df.b.1.tf <- transform_dataframe(df.b.1, "Bonney")
+df.h.1.tf <- transform_dataframe(df.h, "Hoare")
+df.f.1.tf <- transform_dataframe(df.f, "Fryxell")
+
+```
+
+```{r models define functions}
+# Define function to fit max response model, print output, and save summary
+#use the glmm with 'template model builder' package and function (Brooks et al. 2017)
+fit_model_glm_beta <- function(df, location, filepath) {
+  
+  # Fit Linear mixed model
+  model <- glmmTMB(primary_cover_2_tf ~ N * P,
+                    data = df, 
+                    family = beta_family(),
+                    control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS"))) 
+    
+  # Assign model globally
+  assign(paste0("glmm_beta_logit_", location), model, envir = .GlobalEnv)
+
+  # Capture and save model summary to file while printing to console
+  summary_output <- capture.output(print(summary(model)))
+  writeLines(summary_output, con = filepath)
+  
+  # Print dataset name before printing model output
+  cat("\nDataset:", location, "\n")
+  cat(summary_output, sep = "\n")
+
+  return(model)
+}
+
+# List of file extensions
+file_types <- c("jpeg", "pdf", "svg")
+
+# Function to generate and save residual plots (Base R)
+plot_residuals_1 <- function(model, dataset, filepath) {
+
+  # Simulate residuals
+  simulationOutput <- simulateResiduals(fittedModel = model)
+
+  # Print dataset name before printing residual diagnostics
+  cat("\nDataset:", dataset, "\n")
+
+  # Display the plot in the console once
+  plot(simulationOutput, quantreg = TRUE)
+
+  # Save residual plots using base R's graphics devices
+  for (file_type in file_types) {
+    file_name <- paste0(filepath, ".", file_type)  # Proper file name construction
+
+    # Open graphics device
+    if (file_type == "jpeg") jpeg(file_name, width = 800, height = 600)
+    if (file_type == "pdf") pdf(file_name)
+    if (file_type == "svg") svg(file_name)
+
+    # Generate the residual plot again for saving
+    plot(simulationOutput, quantreg = TRUE)
+
+    # Close graphics device
+    dev.off()
+  }
+}
+
+# Function to generate and save residual plots (Set 2)
+plot_residuals_2 <- function(model, df, dataset, filepath) {
+  
+  # Simulate residuals
+  simulationOutput <- simulateResiduals(fittedModel = model)
+  
+  # Print dataset name before printing residual diagnostics
+  cat("\nDataset:", dataset, "\n")
+  
+  # Set up two-panel layout and plot residuals for N and P (only displayed once)
+  par(mfrow = c(1,2))
+  plotResiduals(simulationOutput, df$N)
+  plotResiduals(simulationOutput, df$P)
+  
+  # Save residual plots using base R's graphics devices
+  for (file_type in file_types) {
+    file_name <- paste0(filepath, ".", file_type)  # Proper file name construction
+
+    # Open graphics device
+    if (file_type == "jpeg") jpeg(file_name, width = 800, height = 600)
+    if (file_type == "pdf") pdf(file_name)
+    if (file_type == "svg") svg(file_name)
+    
+    # Recreate residual plots for saving
+    par(mfrow = c(1,2))  # Ensure both plots are saved side by side
+    plotResiduals(simulationOutput, df$N)
+    plotResiduals(simulationOutput, df$P)
+    
+    # Close graphics device
+    dev.off()
+  }
+}
+
+```
+
+# Fit Models 
+A generalized linear model (GLM) approach will be used to fit the maximum growth response with factor variables with two levels each- N (TRUE, FALSE) and P (TRUE, FALSE)- to represent the addition (or not) of nitrogen or phosphorus.   
+
+## GLM - Max Response
+```{r fit glm Max}
+# Run models and print & save outputs
+MAX_glm_beta_logit_bn <- fit_model_glm_beta(df.b.3, "Bonney", paste0(sub.directory.2.1.2.1.2.1.fp, "/Bonney_MAX_glm_beta_logit.txt"))
+MAX_glm_beta_logit_hr <- fit_model_glm_beta(df.h.3, "Hoare", paste0(sub.directory.2.1.2.1.2.1.fp, "/Hoare_MAX_glm_beta_logit.txt"))
+MAX_glm_beta_logit_fx <- fit_model_glm_beta(df.f.3, "Fryxell", paste0(sub.directory.2.1.2.1.2.1.fp, "/Fryxell_MAX_glm_beta_logit.txt"))
+
+```
+
+### Residual Analysis  
+```{r glm - Max residual analysis 1}
+# Generate, print & save residual plots
+plot_residuals_1(MAX_glm_beta_logit_bn, "Bonney", paste0(sub.directory.2.1.2.1.2.2.fp, "/Bonney_MAX_glm_beta_logit_residuals_1"))
+plot_residuals_1(MAX_glm_beta_logit_hr, "Hoare", paste0(sub.directory.2.1.2.1.2.2.fp, "/Hoare_MAX_glm_beta_logit_residuals_1"))
+plot_residuals_1(MAX_glm_beta_logit_fx, "Fryxell", paste0(sub.directory.2.1.2.1.2.2.fp, "/Fryxell_MAX_glm_beta_logit_residuals_1"))
+
+```
+
+Investigate Bonney Resdiuals further to determine if there is a serious issue with the residuals (or not)  
+```{r glm - Max residual analysis 2}
+# Generate, print & save residual plots
+plot_residuals_2(MAX_glm_beta_logit_bn, df.b.3, "Bonney", paste0(sub.directory.2.1.2.1.2.2.fp, "/Bonney_MAX_glm_beta_logit_residuals_2"))
+
+```
+
+### Post Hoc tests  
+```{r post hoc define functions}
+# Function to perform post hoc tests using emmeans
+perform_posthoc_tests <- function(model, location) {
+  emmeans_results <- emmeans(model, pairwise ~ N * P, type = "response")
+  
+  # Print dataset name before printing model output
+  cat("\nDataset:", location, "\n")
+  #cat(summary_output, sep = "\n")
+
+  # Print results
+  print(emmeans_results)
+  
+  return(emmeans_results)
+}
+
+#function to extract estimated marginal means  
+process_emmeans <- function(emmeans_results, location) {
+  # Convert estimated marginal means to a dataframe
+  emmeans_df <- as.data.frame(emmeans_results$emmeans)
+  
+  # Verify available column names for selection
+  expected_columns <- c("N", "P", "response", "SE", "df", "asymp.LCL", "asymp.UCL")
+  available_columns <- intersect(expected_columns, names(emmeans_df))
+  
+  # Select only available columns
+  emmeans_df <- emmeans_df %>% dplyr::select(all_of(available_columns))
+  
+  # Round significant digits
+  emmeans_df <- emmeans_df %>%
+    mutate(response = round(response, 2),
+           SE = round(SE, 2),
+           asymp.LCL = round(asymp.LCL, 2),
+           asymp.UCL = round(asymp.UCL, 2))
+
+  # Add location as the first column
+  emmeans_df <- emmeans_df %>%
+    mutate(location = location) %>%
+    relocate(location)  # Moves location to the first column
+  
+  return(emmeans_df)
+}
+
+#function to extract post hoc Tukey contrasts
+process_contrasts <- function(emmeans_results, location) {
+  # Convert contrasts to a dataframe
+  contrasts_df <- as.data.frame(emmeans_results$contrasts)
+  
+  # Relabel contrast groups properly
+  contrasts_df <- contrasts_df %>%
+    mutate(contrast = case_when(
+      contrast == "FALSE FALSE / TRUE FALSE" ~ "CTRL-N",
+      contrast == "FALSE FALSE / FALSE TRUE" ~ "CTRL-P",
+      contrast == "FALSE FALSE / TRUE TRUE"  ~ "CTRL-NP",
+      contrast == "TRUE FALSE / FALSE TRUE"  ~ "N-P",
+      contrast == "TRUE FALSE / TRUE TRUE"   ~ "N-NP",
+      contrast == "FALSE TRUE / TRUE TRUE"   ~ "P-NP"
+    ))
+
+  # Verify available column names for selection
+  expected_columns <- c("contrast", "odds.ratio", "SE", "p.value")
+  available_columns <- intersect(expected_columns, names(contrasts_df))
+
+  # Select only available columns
+  contrasts_df <- contrasts_df %>% dplyr::select(all_of(available_columns))
+
+  # Round significant digits
+  contrasts_df <- contrasts_df %>%
+    mutate(odds.ratio = round(odds.ratio, 2),  
+           SE = round(SE, 2),
+           p.value = formatC(signif(p.value, 3), format = "f", digits = 4),
+           sig = ifelse(as.numeric(p.value) > 0.05, "ns", "*"))  # Adding sig column
+
+  # Add location as the first column using relocate()
+  contrasts_df <- contrasts_df %>%
+    mutate(location = location) %>%
+    relocate(location)  # Moves location to the first column
+
+  return(contrasts_df)
+}
+
+```
+
+```{r post hoc emmeans tukey MAX}
+# Run post hoc tests for each model
+posthoc_MAX_bn <- perform_posthoc_tests(MAX_glm_beta_logit_bn, "Bonney")
+posthoc_MAX_hr <- perform_posthoc_tests(MAX_glm_beta_logit_hr, "Hoare")
+posthoc_MAX_fx <- perform_posthoc_tests(MAX_glm_beta_logit_fx, "Fryxell")
+
+```
+
+### Summarize estimated marginal means  
+```{r summarize emmeans means}
+# Run function on each dataset
+means_MAX_bn <- process_emmeans(posthoc_MAX_bn, "Bonney")
+means_MAX_hr <- process_emmeans(posthoc_MAX_hr, "Hoare")
+means_MAX_fx <- process_emmeans(posthoc_MAX_fx, "Fryxell")
+
+# Combine results
+final_means_MAX_df <- bind_rows(means_MAX_bn, means_MAX_hr, means_MAX_fx)
+
+# Save dataframe as CSV
+write_csv(final_means_MAX_df, paste0(sub.directory.2.1.2.1.2.1.fp, "/MDV-nutrient-limitation-soils-MAX-emmeans-means.csv"))
+
+# Print dataframe to console
+print(final_means_MAX_df)
+
+```
+
+### Summarize Tukey contrasts     
+```{r summarize emmeans contrasts}
+# Run function on each dataset
+contrasts_MAX_bn <- process_contrasts(posthoc_MAX_bn, "Bonney")
+contrasts_MAX_hr <- process_contrasts(posthoc_MAX_hr, "Hoare")
+contrasts_MAX_fx <- process_contrasts(posthoc_MAX_fx, "Fryxell")
+
+# Combine results
+final_contrasts_MAX_df <- bind_rows(contrasts_MAX_bn, contrasts_MAX_hr, contrasts_MAX_fx)
+
+# Save dataframe as CSV
+write_csv(final_contrasts_MAX_df, paste0(sub.directory.2.1.2.1.2.1.fp, "/MDV-nutrient-limitation-soils-MAX-emmeans-contrasts.csv"))
+
+# Print dataframe to console
+print(final_contrasts_MAX_df)
+
+```
+
+## GLMM - Repeated Measures  
+A generalized linear mixed model (GLMM) approach will be used to test for differences in growth across the time series and will be fit with fixed effects (i.e. treatments) as factor variables with two levels each- N (TRUE, FALSE) and P (TRUE, FALSE)- to represent the addition (or not) of nitrogen or phosphorus.  Additionally, a random effect of plate number will be used to account for repeated measures of individual plates across time.    
+ 
+```{r repeated measures define functions}
+# Define function to fit repeated measures model with random effects, print output, and save summary
+#use the glmm with 'template model builder' package and function (Brooks et al. 2017)
+fit_model_glmm_beta <- function(df, location, filepath) {
+  
+  # Fit Linear mixed model
+  model <- glmmTMB(primary_cover_2_tf ~ N * P + (1| plate_number),
+                    data = df, 
+                    family = beta_family(),
+                    control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS"))) 
+    
+  # Assign model globally
+  assign(paste0("glmm_beta_logit_", location), model, envir = .GlobalEnv)
+
+  # Capture and save model summary to file while printing to console
+  summary_output <- capture.output(print(summary(model)))
+  writeLines(summary_output, con = filepath)
+  
+  # Print dataset name before printing model output
+  cat("\nDataset:", location, "\n")
+  cat(summary_output, sep = "\n")
+
+  return(model)
+}
+
+# Function to generate and save random effects diagnostics  
+plot_diagnostics_random_effects <- function(model, location, filepath) {
+  # Make sure file_types is defined
+  file_types <- c("jpeg", "pdf", "svg")
+  
+  # Print location name
+  cat("\nDataset:", location, "\n")
+  
+  # Directly print the plot to the console
+  p_console <- lme4:::dotplot.ranef.mer(ranef(model)$cond)
+  print(p_console)
+  
+  for (file_type in file_types) {
+    # Construct file name properly
+    file_name <- paste0(filepath, ".", file_type)
+    
+    # Open the appropriate graphics device
+    if (file_type == "jpeg") {
+      jpeg(file_name, width = 800, height = 600)
+    } else if (file_type == "pdf") {
+      pdf(file_name)
+    } else if (file_type == "svg") {
+      svg(file_name)
+    }
+    
+    # Generate the plot and force it to render by printing it
+    p <- lme4:::dotplot.ranef.mer(ranef(model)$cond)
+    print(p)
+    
+    # Close the graphics device
+    dev.off()
+  }
+}
+
+```
+
+```{r glmm - repeated measures 1}
+# repeated measures
+RM_glmm_beta_logit_bn <- fit_model_glmm_beta(df.b.1.tf, "Bonney", paste0(sub.directory.2.1.2.1.2.1.fp, "/Bonney_RM_glmm_beta_logit.txt"))
+RM_glmm_beta_logit_hr <- fit_model_glmm_beta(df.h.1.tf, "Hoare", paste0(sub.directory.2.1.2.1.2.1.fp, "/Hoare_RM_glmm_beta_logit.txt"))
+RM_glmm_beta_logit_fx <- fit_model_glmm_beta(df.f.1.tf, "Fryxell", paste0(sub.directory.2.1.2.1.2.1.fp, "/Fryxell_RM_glmm_beta_logit.txt"))
+
+```
+
+### GLMM - Residual Analysis  
+```{r glmm - repeated measures resid 1}
+# Generate, print & save residual plots
+plot_residuals_1(RM_glmm_beta_logit_bn, "Bonney", paste0(sub.directory.2.1.2.1.2.2.fp, "/Bonney_RM_glmm_beta_logit_residuals_1"))
+plot_residuals_1(RM_glmm_beta_logit_hr, "Hoare", paste0(sub.directory.2.1.2.1.2.2.fp, "/Hoare_RM_glmm_beta_logit_residuals_1"))
+plot_residuals_1(RM_glmm_beta_logit_fx, "Fryxell", paste0(sub.directory.2.1.2.1.2.2.fp, "/Fryxell_RM_glmm_beta_logit_residuals_1"))
+
+```
+
+```{r glmm - repeated measures resid 2}
+# Generate, print & save residual plots
+plot_residuals_2(RM_glmm_beta_logit_bn, df.b.1.tf, "Bonney", paste0(sub.directory.2.1.2.1.2.2.fp, "/Bonney_RM_glmm_beta_logit_residuals_2"))
+plot_residuals_2(RM_glmm_beta_logit_hr, df.h.1.tf, "Hoare", paste0(sub.directory.2.1.2.1.2.2.fp, "/Hoare_RM_glmm_beta_logit_residuals_2"))
+plot_residuals_2(RM_glmm_beta_logit_fx, df.f.1.tf, "Fryxell", paste0(sub.directory.2.1.2.1.2.2.fp, "/Fryxell_RM_glmm_beta_logit_residuals_2"))
+
+```
+
+```{r glmm - repeated measures random effects}
+# Generate, print & save residual plots
+plot_diagnostics_random_effects(RM_glmm_beta_logit_bn, "Bonney", paste0(sub.directory.2.1.2.1.2.2.fp, "/Bonney_RM_glmm_beta_logit_random_effects_diagnostics"))
+plot_diagnostics_random_effects(RM_glmm_beta_logit_hr, "Hoare", paste0(sub.directory.2.1.2.1.2.2.fp, "/Hoare_RM_glmm_beta_logit_random_effects_diagnostics"))
+plot_diagnostics_random_effects(RM_glmm_beta_logit_fx, "Fryxell", paste0(sub.directory.2.1.2.1.2.2.fp, "/Hoare_RM_glmm_beta_logit_random_effects_diagnostics"))
+
+```
+
+## Re-fit Bonney    
+```{r repeated measures define functions bn}
+# Define function to fit repeated measures model with random effects, print output, and save summary
+#use the glmm with 'template model builder' package and function (Brooks et al. 2017)
+fit_model_glmm_beta_bn <- function(df, location, filepath) {
+  
+  # Fit Linear mixed model
+  model <- glmmTMB(primary_cover_2_tf ~ N * P + (1| plate_number),
+                    dispformula = ~ N * P,
+                    data = df, 
+                    family = beta_family(),
+                    control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS"))) 
+    
+  # Assign model globally
+  assign(paste0("glmm_beta_logit_", location), model, envir = .GlobalEnv)
+
+  # Capture and save model summary to file while printing to console
+  summary_output <- capture.output(print(summary(model)))
+  writeLines(summary_output, con = filepath)
+  
+  # Print dataset name before printing model output
+  cat("\nDataset:", location, "\n")
+  cat(summary_output, sep = "\n")
+
+  return(model)
+}
+
+```
+
+```{r glmm - repeated measures bn}
+# repeated measures - Bonney
+RM_glmm_beta_logit_bn <- fit_model_glmm_beta_bn(df.b.1.tf, "Bonney", paste0(sub.directory.2.1.2.1.2.1.fp, "/Bonney_RM_glmm_beta_logit.txt"))
+
+```
+
+### Residual Analysis  
+```{r glmm - repeated measures resid 1 bn}
+# Generate, print & save residual plots
+plot_residuals_1(RM_glmm_beta_logit_bn, "Bonney", paste0(sub.directory.2.1.2.1.2.2.fp, "/Bonney_RM_glmm_beta_logit_residuals_1"))
+
+```
+
+```{r glmm - repeated measures resid 2 bn}
+# Generate, print & save residual plots
+plot_residuals_2(RM_glmm_beta_logit_bn, df.b.1.tf, "Bonney", paste0(sub.directory.2.1.2.1.2.2.fp, "/Bonney_RM_glmm_beta_logit_residuals_2"))
+
+```
+
+```{r glmm - repeated measures random effects bn}
+# Generate, print & save residual plots
+plot_diagnostics_random_effects(RM_glmm_beta_logit_bn, "Bonney", paste0(sub.directory.2.1.2.1.2.2.fp, "/Bonney_RM_glmm_beta_logit_random_effects_diagnostics"))
+
+```
+
+## Re-fit Hoare  
+```{r repeated measures define functions hr}
+# Define function to fit repeated measures model with random effects, print output, and save summary
+#use the glmm with 'template model builder' package and function (Brooks et al. 2017)  
+fit_model_glmm_beta_hr <- function(df, location, filepath) {
+  
+  # Fit Linear mixed model
+  model <- glmmTMB(primary_cover_2_tf ~ N * P + poly(days, 2) + (1 | plate_number),
+                    dispformula = ~ N * P,
+                    data = df, 
+                    family = beta_family(),
+                    control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS")))
+    
+  # Assign model globally
+  assign(paste0("glmm_beta_logit_", location), model, envir = .GlobalEnv)
+
+  # Capture and save model summary to file while printing to console
+  summary_output <- capture.output(print(summary(model)))
+  writeLines(summary_output, con = filepath)
+  
+  # Print dataset name before printing model output
+  cat("\nDataset:", location, "\n")
+  cat(summary_output, sep = "\n")
+
+  return(model)
+}
+
+```
+
+```{r glmm - repeated measures hr}
+# repeated measures - Bonney
+RM_glmm_beta_logit_hr <- fit_model_glmm_beta_hr(df.h.1.tf, "Hoare", paste0(sub.directory.2.1.2.1.2.1.fp, "/Hoare_RM_glmm_beta_logit.txt"))
+
+```
+
+### Residual Analysis  
+```{r glmm - repeated measures resid 1 hr}
+#print & save residual plots
+plot_residuals_1(RM_glmm_beta_logit_hr, "Hoare", paste0(sub.directory.2.1.2.1.2.2.fp, "/Hoare_RM_glmm_beta_logit_residuals_1"))
+
+```
+
+```{r glmm - repeated measures resid 2 hr}
+# Generate, print & save residual plots
+plot_residuals_2(RM_glmm_beta_logit_hr, df.h.1.tf, "Hoare", paste0(sub.directory.2.1.2.1.2.2.fp, "/Hoare_RM_glmm_beta_logit_residuals_2"))
+
+```
+
+```{r repeated measures random effects hr}
+# Generate, print & save residual plots
+plot_diagnostics_random_effects(RM_glmm_beta_logit_hr, "Hoare", paste0(sub.directory.2.1.2.1.2.2.fp, "/Hoare_RM_glmm_beta_logit_random_effects_diagnostics"))
+
+```
+
+```{r RM additional diganostics hr}
+#temporal autocorrelation
+simRes.hr <- simulateResiduals(RM_glmm_beta_logit_hr)
+
+#zero inflation  
+DHARMa::testZeroInflation(simRes.hr)
+
+```
+
+```{r additional diagnostics autocor}
+simRes.hr.1 <- recalculateResiduals(simRes.hr, group = df.h.1.tf$days)
+
+testTemporalAutocorrelation(simRes.hr.1, time = unique(df.h.1.tf$days))
+
+```
+
+## Re-fit Fryxell  
+```{r repeated measures define functions fx}
+# Define function to fit repeated measures model with random effects, print output, and save summary
+#use the glmm with 'template model builder' package and function (Brooks et al. 2017)
+fit_model_glmm_beta_fx <- function(df, location, filepath) {
+  
+  # Fit Linear mixed model
+  model <- glmmTMB(primary_cover_2_tf ~ N * P + poly(days, 2) + (1| plate_number),
+                   #dispformula = ~ days,
+                    data = df, 
+                    family = beta_family(),
+                    control=glmmTMBControl(optimizer=optim, optArgs=list(method="BFGS")))
+    
+  # Assign model globally
+  assign(paste0("glmm_beta_logit_", location), model, envir = .GlobalEnv)
+
+  # Capture and save model summary to file while printing to console
+  summary_output <- capture.output(print(summary(model)))
+  writeLines(summary_output, con = filepath)
+  
+  # Print dataset name before printing model output
+  cat("\nDataset:", location, "\n")
+  cat(summary_output, sep = "\n")
+
+  return(model)
+}
+
+```
+
+```{r glmm - repeated measures fx}
+# repeated measures - Bonney
+RM_glmm_beta_logit_fx <- fit_model_glmm_beta_fx(df.f.1.tf, "Fryxell", paste0(sub.directory.2.1.2.1.2.1.fp, "/Fryxell_RM_glmm_beta_logit.txt"))
+
+```
+
+### Residual Analysis  
+```{r glmm - repeated measures resid 1 fx}
+# Generate, print & save residual plots
+plot_residuals_1(RM_glmm_beta_logit_fx, "Fryxell", paste0(sub.directory.2.1.2.1.2.2.fp, "/Fryxell_RM_glmm_beta_logit_residuals_1"))
+
+```
+
+```{r glmm - repeated measures resid 2 fx}
+# Generate, print & save residual plots
+plot_residuals_2(RM_glmm_beta_logit_fx, df.f.1.tf, "Fryxell", paste0(sub.directory.2.1.2.1.2.2.fp, "/Fryxell_RM_glmm_beta_logit_residuals_2"))
+
+```
+
+```{r repeated measures random effects hr}
+# Generate, print & save residual plots
+plot_diagnostics_random_effects(RM_glmm_beta_logit_fx, "Fryxell", paste0(sub.directory.2.1.2.1.2.2.fp, "/Fryxell_RM_glmm_beta_logit_random_effects_diagnostics"))
+
+```
+
+### Post Hoc tests
+```{r post hoc emmeans tukey RM}
+# Run post hoc tests for each model
+posthoc_RM_bn <- perform_posthoc_tests(RM_glmm_beta_logit_bn, "Bonney")
+posthoc_RM_hr <- perform_posthoc_tests(RM_glmm_beta_logit_hr, "Hoare")
+posthoc_RM_fx <- perform_posthoc_tests(RM_glmm_beta_logit_fx, "Fryxell")
+
+```
+
+### Summarize estimated marginal means  
+```{r summarize emmeans means}
+# Run function on each dataset
+means_RM_bn <- process_emmeans(posthoc_RM_bn, "Bonney")
+means_RM_hr <- process_emmeans(posthoc_RM_hr, "Hoare")
+means_RM_fx <- process_emmeans(posthoc_RM_fx, "Fryxell")
+
+# Combine results
+final_means_RM_df <- bind_rows(means_RM_bn, means_RM_hr, means_RM_fx)
+
+# Save dataframe as CSV
+write_csv(final_means_RM_df, paste0(sub.directory.2.1.2.1.2.1.fp, "/MDV-nutrient-limitation-soils-RM-emmeans-means.csv"))
+
+# Print dataframe to console
+print(final_means_RM_df)
+```
+
+### Summarize Post Hoc tests   
+```{r summarize emmeans contrasts}
+# Run function on each dataset
+contrasts_RM_bn <- process_contrasts(posthoc_RM_bn, "Bonney")
+contrasts_RM_hr <- process_contrasts(posthoc_RM_hr, "Hoare")
+contrasts_RM_fx <- process_contrasts(posthoc_RM_fx, "Fryxell")
+
+# Combine results
+final_contrasts_RM_df <- bind_rows(contrasts_RM_bn, contrasts_RM_hr, contrasts_RM_fx)
+
+# Save dataframe as CSV
+write_csv(final_contrasts_RM_df, paste0(sub.directory.2.1.2.1.2.1.fp, "/MDV-nutrient-limitation-soils-RM-emmeans-contrasts.csv"))
+
+# Print dataframe to console
+print(final_contrasts_RM_df)
+
+```
+
+## References  
+Brooks ME, Kristensen K, van Benthem KJ, Magnusson A, Berg CW, Nielsen A, Skaug HJ, Maechler M, Bolker BM (2017). “glmmTMB Balances Speed and Flexibility Among Packages for Zero-inflated Generalized Linear Mixed Modeling.” The R Journal, 9(2), 378–400. doi:10.32614/RJ-2017-066.  
+
+Cribari-Neto, F., & Zeileis, A. (2010). Beta regression in R. Journal of statistical software, 34, 1-24.  
+
+# End of Script 

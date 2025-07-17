@@ -1,0 +1,914 @@
+---
+title: "McMurdo Dry Valleys Nutrient Limitation"
+subtitle: "  \n Processing of Biogeochemical Data"
+author: "Adam J. Solon"
+date: "`r Sys.Date()`"
+#output: html_document
+output: 
+  pdf_document:
+    toc: TRUE
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+    keep_md: true
+fontsize: 12pt
+#editor_options: 
+#  chunk_output_type: console
+---
+  
+# Script Summary  
+This script processes geochemical, biological, geographic, and physical data measured from sediments collected in Taylor Valley of the McMurdo Dry Valleys, Antarctica, and subsets samples from the file that pertain to samples which contain both soil chemistry and biology for downstream analyses. 
+
+### Steps of this pipeline:  
+1.  Create and organize directories
+2.  Load R packages
+3.  Input files
+4.  Format Files
+  a. molar conversions of percent values
+  b. numeric and factor classifications
+  c. convert dna concentration (Qubit) into ng per g soil
+  d. re-label samples IDs with more coherent names
+5.  Exploratory Data Analysis
+  a. 
+6.  Save Files
+
+```{r echo = FALSE, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+
+```
+
+```{r, echo = FALSE, include = FALSE}
+# Change identifiers to your system and file naming. 
+user <- "F:"
+directory <- "/Projects"
+project <- "/CryoHoles/Studies"
+study <- "/Soils-Nutrient-Limitation_Solon-et-al"
+
+sub.directory.1 <- "/data"
+sub.directory.1.1 <- "/processed_files"
+sub.directory.1.1.1 <- "/soil_chemistry"
+sub.directory.1.1.2 <- "/dna_seq"
+
+sub.directory.2 <- "/analyses"
+sub.directory.2.1 <- "/biogeochemistry"
+sub.directory.2.1.1 <- "/input"
+sub.directory.2.1.2 <- "/exploratory_data_analysis"
+sub.directory.2.1.2.1 <- "/histograms"
+sub.directory.2.1.2.2 <- "/density"
+sub.directory.2.1.2.3 <- "/outliers"
+sub.directory.2.1.2.4 <- "/scatter"
+
+```
+
+### Set pathways and create directories  
+
+```{r set paths for pipeline}
+# First define the project and project directories. 
+
+# Create pathway for pipeline
+###################################################
+path.fp <- paste0(user, directory, project, study)
+if (!dir.exists(path.fp)) dir.create(path.fp)
+
+```
+
+```{r set paths for processed files}
+#sub.directory.1 data
+###################################################
+sub.directory.1.fp <- paste0(path.fp, sub.directory.1)
+if (!dir.exists(sub.directory.1.fp)) dir.create(sub.directory.1.fp)
+
+# Create sub-directory  processed files
+###################################################
+sub.directory.1.1.fp <- paste0(sub.directory.1.fp, sub.directory.1.1)
+if (!dir.exists(sub.directory.1.1.fp)) dir.create(sub.directory.1.1.fp)
+
+# Create sub-directory soil chemistry
+###################################################
+sub.directory.1.1.1.fp <- paste0(sub.directory.1.1.fp, sub.directory.1.1.1)
+if (!dir.exists(sub.directory.1.1.1.fp)) dir.create(sub.directory.1.1.1.fp)
+
+# Create sub-directory dna seq
+###################################################
+sub.directory.1.1.2.fp <- paste0(sub.directory.1.1.fp, sub.directory.1.1.2)
+if (!dir.exists(sub.directory.1.1.2.fp)) dir.create(sub.directory.1.1.2.fp)
+
+```
+
+```{r set paths for analyses}
+#sub.directory.2 analyses
+###################################################
+sub.directory.2.fp <- paste0(path.fp, sub.directory.2)
+if (!dir.exists(sub.directory.2.fp)) dir.create(sub.directory.2.fp)
+
+# Create sub-directory  biogeochemistry
+###################################################
+sub.directory.2.1.fp <- paste0(sub.directory.2.fp, sub.directory.2.1)
+if (!dir.exists(sub.directory.1.1.fp)) dir.create(sub.directory.1.1.fp)
+
+# Create sub-directory exploratory data analysis
+###################################################
+sub.directory.2.1.1.fp <- paste0(sub.directory.2.1.fp, sub.directory.2.1.1)
+if (!dir.exists(sub.directory.2.1.1.fp)) dir.create(sub.directory.2.1.1.fp)
+
+# Create sub-directory exploratory data analysis
+###################################################
+sub.directory.2.1.2.fp <- paste0(sub.directory.2.1.fp, sub.directory.2.1.2)
+if (!dir.exists(sub.directory.2.1.2.fp)) dir.create(sub.directory.2.1.2.fp)
+
+# Create sub-directory histograms
+###################################################
+sub.directory.2.1.2.1.fp <- paste0(sub.directory.2.1.2.fp, sub.directory.2.1.2.1)
+if (!dir.exists(sub.directory.2.1.2.1.fp)) dir.create(sub.directory.2.1.2.1.fp)
+
+# Create sub-directory density
+###################################################
+sub.directory.2.1.2.2.fp <- paste0(sub.directory.2.1.2.fp, sub.directory.2.1.2.2)
+if (!dir.exists(sub.directory.2.1.2.2.fp)) dir.create(sub.directory.2.1.2.2.fp)
+
+# Create sub-directory outliers
+###################################################
+sub.directory.2.1.2.3.fp <- paste0(sub.directory.2.1.2.fp, sub.directory.2.1.2.3)
+if (!dir.exists(sub.directory.2.1.2.3.fp)) dir.create(sub.directory.2.1.2.3.fp)
+
+# Create sub-directory scatter
+###################################################
+sub.directory.2.1.2.4.fp <- paste0(sub.directory.2.1.2.fp, sub.directory.2.1.2.4)
+if (!dir.exists(sub.directory.2.1.2.4.fp)) dir.create(sub.directory.2.1.2.4.fp)
+
+```
+
+### Load R packages  
+```{r Install and load packages, echo = FALSE, include = FALSE}
+# install.packages("tidyverse")
+# install.packages("knitr")
+library(knitr); packageVersion("knitr")
+library(tidyverse); packageVersion("tidyverse")
+library(moments); packageVersion("moments")
+
+```
+
+* r version: `r getRversion()`
+* RStudio version: `r rstudioapi::versionInfo()$version`
+* r packages:  
+  
+  knitr, `r packageVersion("knitr")`  
+  tidyverse, `r packageVersion("tidyverse")`  
+  moments, `r packageVersion("moments")`  
+
+### Input Files
+Required input files:   
+  
+1.  The 'mapping file' w/ physical, geographic, chemical, and biological data for each sample 
+ 
+Input files and re-format for use in pipeline
+
+```{r input data files}
+# input data files
+# TOC and TN data
+File.1.fp <- paste0(sub.directory.1.1.1.fp, "/MDV-soil-nutrient-limitation-TOC-TN-study-comparisons.csv") 
+# TP and TOP
+File.2.fp <- paste0(sub.directory.1.1.1.fp, "/MDV-soil-nutrient-limitation-TP-TOP-study-comparisons.csv") 
+
+#map file
+mappingFile.fp <- paste0(sub.directory.1.1.2.fp, "/MDV-soil-nutrient-limitation-map-file.txt") 
+
+#input data
+df.cn <- read.csv(File.1.fp, header = T)
+df.p <- read.csv(File.2.fp, header = T)
+m <- read.table(mappingFile.fp, header = T, sep = "\t")
+  
+```
+
+### Format Files  
+```{r format flie toc-tn}
+#format dataframe
+df.cn.1 <- df.cn %>%
+  mutate(across(c(SampleID, Study, Location, sample_type, Substrate), as.factor)) %>%
+  mutate(umol.C_g.soil = (C_perc / 100) * (1e6 / 12.01)) %>%
+  mutate(umol.N_g.soil = (N_perc / 100) * (1e6 / 14.01)) %>%
+  mutate(C_to_N = as.numeric(umol.C_g.soil / umol.N_g.soil)) %>%
+  mutate(across(c(umol.N_g.soil, d15N), ~ signif(.x, 2))) %>%  # Keep these at 2 significant digits
+  mutate(across(c(umol.C_g.soil, C_to_N, d13C), ~ round(.x, 1)))  # Round these to 1 decimal place
+
+#rownames as sample IDs
+rownames(df.cn.1) <- df.cn.1$SampleID
+
+```
+
+```{r format file tp-top}
+#format dataframe
+df.p.1 <- df.p %>%
+  mutate(SampleID = case_when(
+    str_detect(samples, "MDV_FX_bulk_") ~ str_replace(samples, "MDV_FX_bulk_", "FXB_0"),
+    str_detect(samples, "MDV_HR_bulk_") ~ str_replace(samples, "MDV_HR_bulk_", "HRB_0"),
+    str_detect(samples, "MDV_CAN_bulk_") ~ str_replace(samples, "MDV_CAN_bulk_", "CAB_0"),
+    str_detect(samples, "MDV_COM_bulk_") ~ str_replace(samples, "MDV_COM_bulk_", "COB_0"),
+    str_detect(samples, "MDV_TAY_bulk_") ~ str_replace(samples, "MDV_TAY_bulk_", "TAB_0"),
+    TRUE ~ samples  # Preserve original values if no match is found
+  )) %>%
+  mutate(across(c(SampleID, Study, Location, Substrate), as.factor)) %>%  
+  mutate(umol.TP_g.soil = (p_unburned_perc / 100) * (1e6 / 30.97)) %>%  # Convert % to µmol/g using atomic mass of P
+  mutate(umol.TIP_g.soil = (p_burned_perc / 100) * (1e6 / 30.97)) %>%
+  mutate(umol.TOP_g.soil = (p_organic_perc / 100) * (1e6 / 30.97)) %>%
+  mutate(across(c(umol.TP_g.soil, umol.TIP_g.soil), ~ signif(.x, 3))) %>%  # Round TP and TIP to 3 sig digits
+  mutate(umol.TOP_g.soil = signif(umol.TOP_g.soil, 4)) %>%  # Round TOP to 4 sig digits
+  dplyr::select(SampleID, everything())  # Moves SampleID to the first column
+
+#rownames as sample IDs
+rownames(df.p.1) <- df.p.1$SampleID
+
+```
+
+```{r format flie map file}
+#format dataframe
+m.1 <- m %>%
+  mutate(across(c(SampleID, location, treatment), as.factor)) %>%
+  mutate(ngDNA_100uL = dna_conc_ng_uL * 100,  # Convert to ng in 100 uL
+    ngDNA_0.35g_soil = ngDNA_100uL,  # Same value, but conceptually associated with 0.35g soil
+    ngDNA_per_g_soil = as.numeric(ngDNA_0.35g_soil / 0.35)) %>%  # Normalize to 1g soil
+  mutate(ngDNA_per_g_soil = round(ngDNA_per_g_soil, 0))  # Round to whole numbers
+
+#rownames as sample IDs
+rownames(m.1) <- m.1$SampleID
+
+```
+
+## Exploratory Data Analysis  
+```{r create histograms}
+# Define the response variables for each dataframe
+df_variables <- list(
+  df.cn.1 = c("d13C", "d15N", "umol.C_g.soil", "umol.N_g.soil", "C_to_N"),
+  df.p.1 = c("umol.TP_g.soil", "umol.TIP_g.soil", "umol.TOP_g.soil"),
+  m.1 = c("ngDNA_per_g_soil")
+)
+
+# Create an empty list to store histogram plots
+histogram_plots_list <- list()
+
+# Loop through each dataframe and generate histograms
+for (df_name in names(df_variables)) {
+  df <- get(df_name)  # Retrieve dataframe by name
+  
+  for (var in df_variables[[df_name]]) {
+    plot <- ggplot(df, aes(x = .data[[var]])) +
+      geom_histogram(bins = 30, fill = "lightblue", color = "black") +
+      ggtitle(paste("Histogram of", var, "in", df_name))
+    
+    # Store plot in the list
+    histogram_plots_list[[paste(df_name, var, sep = "_")]] <- plot
+    
+    # Print the plot
+    print(plot)
+  }
+}
+
+```
+
+### Save plots 
+```{r save histograms}
+# Define sub-directory paths for saving histograms (update with actual paths)
+group_directories_histo <- list(
+  df.cn.1 = sub.directory.2.1.2.1.fp ,
+  df.p.1 = sub.directory.2.1.2.1.fp ,
+  m.1 = sub.directory.2.1.2.1.fp 
+)
+
+# Iterate through each dataframe and save histogram plots
+for (df_name in names(df_variables)) {
+  for (var in df_variables[[df_name]]) {
+    hist_key <- paste(df_name, var, sep = "_")
+    
+    if (!is.null(histogram_plots_list[[hist_key]])) {
+      # Save histogram plots in .jpeg, .pdf, and .svg formats
+      ggsave(filename = paste0(group_directories_histo[[df_name]], "/Histogram_", var, ".jpeg"),
+             plot = histogram_plots_list[[hist_key]], device = "jpeg")
+      ggsave(filename = paste0(group_directories_histo[[df_name]], "/Histogram_", var, ".pdf"),
+             plot = histogram_plots_list[[hist_key]], device = "pdf")
+      ggsave(filename = paste0(group_directories_histo[[df_name]], "/Histogram_", var, ".svg"),
+             plot = histogram_plots_list[[hist_key]], device = "svg")
+    }
+  }
+}
+
+```
+
+### Density plots 
+```{r create density}
+# Create an empty list to store density plots
+density_plots_list <- list()
+
+# Loop through each dataframe and generate density plots
+for (df_name in names(df_variables)) {
+  df <- get(df_name)  # Retrieve dataframe by name
+  
+  for (var in df_variables[[df_name]]) {
+    plot <- ggplot(df, aes(x = .data[[var]])) +
+      geom_density(fill = "lightblue", alpha = 0.5) +
+      ggtitle(paste("Density Plot of", var, "in", df_name))
+    
+    # Store plot in the list
+    density_plots_list[[paste(df_name, var, sep = "_")]] <- plot
+    
+    # Print the plot
+    print(plot)
+  }
+}
+
+```
+
+### Save plots 
+```{r save density}
+# Define sub-directory paths for saving density plots (update with actual paths)
+group_directories_density <- list(
+  df.cn.1 = sub.directory.2.1.2.2.fp,
+  df.p.1 = sub.directory.2.1.2.2.fp,
+  m.1 = sub.directory.2.1.2.2.fp
+)
+
+# Iterate through each dataframe and save density plots
+for (df_name in names(df_variables)) {
+  for (var in df_variables[[df_name]]) {
+    density_key <- paste(df_name, var, sep = "_")
+    
+    if (!is.null(density_plots_list[[density_key]])) {
+      # Save density plots in .jpeg, .pdf, and .svg formats
+      ggsave(filename = paste0(group_directories_density[[df_name]], "/Density_", var, ".jpeg"),
+             plot = density_plots_list[[density_key]], device = "jpeg")
+      ggsave(filename = paste0(group_directories_density[[df_name]], "/Density_", var, ".pdf"),
+             plot = density_plots_list[[density_key]], device = "pdf")
+      ggsave(filename = paste0(group_directories_density[[df_name]], "/Density_", var, ".svg"),
+             plot = density_plots_list[[density_key]], device = "svg")
+    }
+  }
+}
+
+```
+
+### Skewness
+```{r compute skewness coefficient}
+# Function to compute skewness
+compute_skewness <- function(data, variable) {
+  skew_value <- skewness(data[[variable]], na.rm = TRUE)
+  return(data.frame(Variable = variable, Skewness = skew_value))
+}
+
+# Create an empty list to store skewness results
+skew_results_list <- list()
+
+# Loop through each dataframe and compute skewness
+for (df_name in names(df_variables)) {
+  df <- get(df_name)  # Retrieve dataframe by name
+  
+  for (var in df_variables[[df_name]]) {
+    skew_results_list[[paste(df_name, var, sep = "_")]] <- compute_skewness(df, var)
+  }
+}
+
+# Combine all results into a single dataframe
+skew_results_df <- bind_rows(skew_results_list)
+
+# Separate variables into normal and skewed
+normal_vars <- skew_results_df %>% filter(Skewness >= -1 & Skewness <= 1)
+skewed_vars <- skew_results_df %>% filter(Skewness < -1 | Skewness > 1)
+
+```
+
+```{r display skewness coefficient}
+# Print results
+print("Variables with approximately normal skewness:")
+print(normal_vars)
+
+print("Variables with high skewness:")
+print(skewed_vars)
+
+```
+
+
+```{r format skewness coefficient}
+# Separate variables into normal and skewed for each dataframe
+skewness_results_list <- list()
+
+for (df_name in names(df_variables)) {
+  df_subset <- skew_results_df %>% filter(Variable %in% df_variables[[df_name]])
+  
+  normal_vars_vec <- df_subset %>% filter(Skewness >= -1 & Skewness <= 1) %>% pull(Variable)
+  skewed_vars_vec <- df_subset %>% filter(Skewness < -1 | Skewness > 1) %>% pull(Variable)
+
+  # Store results
+  skewness_results_list[[df_name]] <- list(
+    normal_vars = normal_vars_vec,
+    skewed_vars = skewed_vars_vec
+  )
+  
+  # Print results
+  print(paste("Variables with approximately normal skewness in", df_name, ":"))
+  print(normal_vars_vec)
+
+  print(paste("Variables with high skewness in", df_name, ":"))
+  print(skewed_vars_vec)
+}
+
+```
+
+###Kurtosis   
+```{r compute kurtosis}
+# Function to compute kurtosis
+compute_kurtosis <- function(data, variable) {
+  kurt_value <- kurtosis(data[[variable]], na.rm = TRUE)
+  return(data.frame(Variable = variable, Kurtosis = kurt_value))
+}
+
+# Create an empty list to store kurtosis results
+kurtosis_results_list <- list()
+
+# Loop through each dataframe and compute kurtosis
+for (df_name in names(df_variables)) {
+  df <- get(df_name)  # Retrieve dataframe by name
+  
+  for (var in df_variables[[df_name]]) {
+    kurtosis_results_list[[paste(df_name, var, sep = "_")]] <- compute_kurtosis(df, var)
+  }
+}
+
+# Combine results into a single dataframe and print it
+kurtosis_results_df <- bind_rows(kurtosis_results_list)
+print(kurtosis_results_df)  # Ensure the dataframe is created correctly
+
+# Separate variables into categories based on kurtosis for each dataframe
+kurtosis_results_list_formatted <- list()
+
+for (df_name in names(df_variables)) {
+  df_subset <- kurtosis_results_df %>% filter(Variable %in% df_variables[[df_name]])
+  
+  mesokurtic_vars_vec <- df_subset %>% filter(Kurtosis >= 2.5 & Kurtosis <= 3.5) %>% pull(Variable)
+  leptokurtic_vars_vec <- df_subset %>% filter(Kurtosis > 3.5) %>% pull(Variable)
+  platykurtic_vars_vec <- df_subset %>% filter(Kurtosis < 2.5) %>% pull(Variable)
+
+  # Store results
+  kurtosis_results_list_formatted[[df_name]] <- list(
+    mesokurtic_vars = mesokurtic_vars_vec,
+    leptokurtic_vars = leptokurtic_vars_vec,
+    platykurtic_vars = platykurtic_vars_vec
+  )
+  
+  # Print results
+  print(paste("Variables with approximately normal kurtosis (Mesokurtic) in", df_name, ":"))
+  print(mesokurtic_vars_vec)
+
+  print(paste("Variables with high kurtosis (Leptokurtic) in", df_name, ":"))
+  print(leptokurtic_vars_vec)
+
+  print(paste("Variables with low kurtosis (Platykurtic) in", df_name, ":"))
+  print(platykurtic_vars_vec)
+}
+
+```
+
+### Save files
+```{r save skewness and kurtosis}
+# Define sub-directory paths for saving results (update with actual paths)
+group_directories_stats <- list(
+  df.cn.1 = sub.directory.2.1.2.fp,
+  df.p.1 = sub.directory.2.1.2.fp,
+  m.1 = sub.directory.2.1.2.fp
+)
+
+# Merge skewness and kurtosis results
+skew_kurt_results_df <- full_join(skew_results_df, kurtosis_results_df, by = "Variable")
+
+# Iterate through each dataframe and save results
+for (df_name in names(df_variables)) {
+  df_subset <- skew_kurt_results_df %>% filter(Variable %in% df_variables[[df_name]])
+  
+  write.csv(df_subset, file = paste0(group_directories_stats[[df_name]], "/Skewness_Kurtosis_", df_name, ".csv"), row.names = FALSE)
+}
+
+```
+
+## Outliers
+### Z-scores  
+```{r compute z-scores}
+# Function to compute Z-scores and flag outliers
+detect_outliers_z <- function(data, variable) {
+  mean_val <- mean(data[[variable]], na.rm = TRUE)
+  sd_val <- sd(data[[variable]], na.rm = TRUE)
+  
+  outliers <- data %>%
+    mutate(Variable = variable,  # Include variable name in output
+           Original_Value = .data[[variable]],  # Include original value
+           Z_score = (data[[variable]] - mean_val) / sd_val,
+           Outlier = ifelse(abs(Z_score) > 3, TRUE, FALSE)) %>%
+    filter(Outlier == TRUE) %>%
+    select(Variable, Original_Value, Z_score, Outlier)
+  
+  return(outliers)
+}
+
+# Apply function only to normally skewed variables in each dataframe
+outliers_z_list <- list()
+for (df_name in names(df_variables)) {
+  df_subset <- skew_results_df %>% filter(Variable %in% df_variables[[df_name]])
+  
+  normal_vars_vec <- df_subset %>% filter(Skewness >= -1 & Skewness <= 1) %>% pull(Variable)
+
+  df <- get(df_name)
+  
+  outliers_z_list[[df_name]] <- bind_rows(lapply(normal_vars_vec, function(var) detect_outliers_z(df, var)))
+  
+  print(paste("Z-score outliers detected for", df_name, ":"))
+  print(outliers_z_list[[df_name]])
+}
+
+```
+
+### Modified Z-scores  
+```{r compute modified z-scores}
+# Function to compute Modified Z-scores and flag outliers
+detect_outliers_modified_z <- function(data, variable) {
+  median_val <- median(data[[variable]], na.rm = TRUE)
+  mad_val <- mad(data[[variable]], na.rm = TRUE)
+  
+  outliers <- data %>%
+    mutate(Variable = variable,  # Include variable name in output
+           Original_Value = .data[[variable]],  # Include original value
+           Modified_Z = (0.6745 * (data[[variable]] - median_val)) / mad_val,
+           Outlier = ifelse(abs(Modified_Z) > 3.5, TRUE, FALSE)) %>%
+    filter(Outlier == TRUE) %>%
+    select(Variable, Original_Value, Modified_Z, Outlier)
+  
+  return(outliers)
+}
+
+# Apply function only to skewed variables in each dataframe
+outliers_modified_z_list <- list()
+for (df_name in names(df_variables)) {
+  df_subset <- skew_results_df %>% filter(Variable %in% df_variables[[df_name]])
+  
+  skewed_vars_vec <- df_subset %>% filter(Skewness < -1 | Skewness > 1) %>% pull(Variable)
+
+  df <- get(df_name)
+  
+  outliers_modified_z_list[[df_name]] <- bind_rows(lapply(skewed_vars_vec, function(var) detect_outliers_modified_z(df, var)))
+  
+  print(paste("Modified Z-score outliers detected for", df_name, ":"))
+  print(outliers_modified_z_list[[df_name]])
+}
+
+```
+
+### IQR
+```{r compute IQR x1.5}
+# Function to detect outliers using IQR method
+detect_outliers_IQR <- function(data, variable) {
+  Q1 <- quantile(data[[variable]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(data[[variable]], 0.75, na.rm = TRUE)
+  IQR_val <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR_val
+  upper_bound <- Q3 + 1.5 * IQR_val
+
+  outliers <- data %>%
+    mutate(Variable = variable,  # Include variable name in output
+           Outlier_Value = .data[[variable]],  # Preserve value for display
+           Outlier = ifelse(Outlier_Value < lower_bound | Outlier_Value > upper_bound, TRUE, FALSE)) %>%
+    filter(Outlier == TRUE) %>%
+    select(Variable, Outlier_Value, Outlier)
+  
+  return(outliers)
+}
+
+# Apply function to each dataframe separately
+outlier_IQR_results_list <- list()
+for (df_name in names(df_variables)) {
+  df <- get(df_name)  # Retrieve dataframe by name
+  
+  outlier_IQR_results_list[[df_name]] <- bind_rows(lapply(df_variables[[df_name]], function(var) detect_outliers_IQR(df, var)))
+  
+  print(paste("IQR-based outliers detected for", df_name, ":"))
+  print(outlier_IQR_results_list[[df_name]])
+}
+
+```
+
+### Save files
+```{r save outliers}
+# Define groups and corresponding response variables for each dataframe
+df_groups <- list(
+  df.cn.1 = df_variables$df.cn.1,
+  df.p.1 = df_variables$df.p.1,
+  m.1 = df_variables$m.1
+)
+
+# Example sub-directory paths for each dataframe (update with actual file paths)
+group_directories_outlier <- list(
+  df.cn.1 = sub.directory.2.1.2.3.fp,
+  df.p.1 = sub.directory.2.1.2.3.fp,
+  m.1 = sub.directory.2.1.2.3.fp
+)
+
+# Iterate through each dataframe and collect outlier results
+for (df_name in names(df_groups)) {
+  # Extract outlier data from all three methods
+  z_outliers <- outliers_z_list[[df_name]]
+  modified_z_outliers <- outliers_modified_z_list[[df_name]]
+  iqr_outliers <- outlier_IQR_results_list[[df_name]]
+  
+  # Combine the three outlier detection results
+  combined_outliers <- bind_rows(
+    mutate(z_outliers, Method = "Z-score"),
+    mutate(modified_z_outliers, Method = "Modified Z-score"),
+    mutate(iqr_outliers, Method = "IQR x1.5")
+  )
+  
+  # Check if there are detected outliers before saving
+  if (!is.null(combined_outliers) && nrow(combined_outliers) > 0) {
+    file_path <- paste0(group_directories_outlier[[df_name]], "/combined_outliers_", df_name, ".csv")
+    
+    # Save the combined outlier data as a CSV file
+    write.csv(combined_outliers, file = file_path, row.names = FALSE)
+    
+    print(paste("Saved combined outliers for", df_name, "to:", file_path))
+  } else {
+    print(paste("No outliers detected for", df_name, "- no file saved."))
+  }
+}
+
+```
+
+### Boxplots
+```{r create boxplots}
+# Loop through each dataframe and generate boxplots
+for (df_name in names(df_variables)) {
+  df <- get(df_name)  # Retrieve dataframe by name
+  df$row_id <- rownames(df)  # Add row names as an identifier
+  
+  for (var in df_variables[[df_name]]) {
+    
+    # Create the plot
+    p <- ggplot(df, aes(x = "", y = .data[[var]])) +
+      geom_boxplot(outlier.colour = "red", outlier.shape = 16) +
+      geom_text(aes(label = ifelse(.data[[var]] %in% boxplot.stats(.data[[var]])$out, row_id, "")), 
+                hjust = -0.2, vjust = 0.5, size = 3, color = "red") +
+      theme_bw() +
+      labs(title = paste("Boxplot of", var, "in", df_name),
+           x = "",
+           y = "Value") +
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+    
+    # Print the plot
+    print(p)
+  }
+}
+
+```
+
+### Save plots
+```{r save boxplots}
+# Example sub-directory paths for each dataframe (update with actual file paths)
+group_directories_boxplot <- list(
+  df.cn.1 = sub.directory.2.1.2.3.fp,
+  df.p.1 = sub.directory.2.1.2.3.fp,
+  m.1 = sub.directory.2.1.2.3.fp
+)
+
+# Loop through each dataframe and generate boxplots
+for (df_name in names(df_variables)) {
+  df <- get(df_name)  # Retrieve dataframe by name
+  df$row_id <- rownames(df)  # Add row names as an identifier
+  
+  for (var in df_variables[[df_name]]) {
+    
+    # Create the plot
+    p <- ggplot(df, aes(x = "", y = .data[[var]])) +
+      geom_boxplot(outlier.colour = "red", outlier.shape = 16) +
+      geom_text(aes(label = ifelse(.data[[var]] %in% boxplot.stats(.data[[var]])$out, row_id, "")), 
+                hjust = -0.2, vjust = 0.5, size = 3, color = "red") +
+      theme_bw() +
+      labs(title = paste("Boxplot of", var, "in", df_name),
+           x = "",
+           y = "Value") +
+      theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+    # Print the plot
+    print(p)
+
+    # Define file paths for different formats
+    file_jpeg <- paste0(group_directories_boxplot[[df_name]], "/boxplot_", var, ".jpeg")
+    file_pdf  <- paste0(group_directories_boxplot[[df_name]], "/boxplot_", var, ".pdf")
+    file_svg  <- paste0(group_directories_boxplot[[df_name]], "/boxplot_", var, ".svg")
+
+    # Save the plots in different formats
+    ggsave(file_jpeg, plot = p, device = "jpeg", width = 6, height = 4, units = "in", dpi = 300)
+    ggsave(file_pdf, plot = p, device = "pdf", width = 6, height = 4, units = "in")
+    ggsave(file_svg, plot = p, device = "svg", width = 6, height = 4, units = "in")
+
+  }
+}
+```
+
+## Patterns    
+### Scatterplots  
+```{r create scatterplots}
+# Initialize a list to store scatterplots
+scatter_plots_list <- list()
+
+# Get all variables across the three dataframes (excluding SampleID)
+all_variables <- setdiff(unlist(df_variables), "SampleID")
+
+# Iterate through each variable as the reference (x-axis)
+for (ref_var in all_variables) {
+  # Identify the dataframe containing the reference variable
+  df_x_name <- names(df_variables)[sapply(df_variables, function(vars) ref_var %in% vars)]
+  
+  if (length(df_x_name) > 0) {
+    df_x <- get(df_x_name)  # Retrieve dataframe containing the reference variable
+    
+    # Ensure SampleID exists for merging
+    if ("SampleID" %in% colnames(df_x)) {
+      df_x <- df_x %>% mutate(row_id = SampleID)
+    } else {
+      df_x <- df_x %>% mutate(row_id = rownames(df_x))
+    }
+    
+    # Iterate through all other variables as y-axis variables
+    for (df_compare in names(df_variables)) {
+      df_y <- get(df_compare)  # Retrieve dataframe containing the comparison variables
+      
+      for (comp_var in df_variables[[df_compare]]) {
+        # Ensure we don't compare the variable against itself
+        if (ref_var != comp_var) {
+          # Ensure SampleID exists for merging
+          if ("SampleID" %in% colnames(df_y)) {
+            df_y <- df_y %>% mutate(row_id = SampleID)
+          } else {
+            df_y <- df_y %>% mutate(row_id = rownames(df_y))
+          }
+          
+          # Merge the two dataframes based on row_id
+          if (ref_var %in% colnames(df_x) && comp_var %in% colnames(df_y)) {
+            df_merged <- df_x %>%
+              select(row_id, x_value = .data[[ref_var]]) %>%
+              inner_join(df_y %>% select(row_id, y_value = .data[[comp_var]]), by = "row_id") %>%
+              filter(!is.na(x_value) & !is.na(y_value))
+
+            # Calculate sample size
+            n <- nrow(df_merged)
+
+            # Generate scatterplot
+            scatter_plot <- ggplot(df_merged, aes(x = x_value, y = y_value)) +
+              geom_point(size = 4, shape = 1) +
+              ggtitle(paste(comp_var, "vs", ref_var, "(n =", n, ")")) +
+              labs(x = ref_var, y = comp_var) +
+              theme_bw() +
+              theme(
+                plot.title = element_text(size = 18),
+                axis.title.y = element_text(size = 20),
+                axis.title.x = element_text(size = 20),
+                axis.text.x = element_text(size = 18),
+                axis.text.y = element_text(size = 18),
+                strip.text.x = element_text(size = 30)
+              )
+
+            # Store plot in the list using `{ref_var}_vs_{comp_var}`
+            scatter_plots_list[[paste(ref_var, "vs", comp_var, sep = "_")]] <- scatter_plot
+          }
+        }
+      }
+    }
+  }
+}
+
+# Function to display scatterplots for a given reference variable
+display_scatterplots <- function(ref_var) {
+  selected_plots <- scatter_plots_list[grepl(paste0(ref_var, "_vs_"), names(scatter_plots_list))]
+  
+  # Print the selected scatterplots
+  for (plot_name in names(selected_plots)) {
+    print(selected_plots[[plot_name]])
+  }
+}
+
+```
+
+```{r display d13c}
+#scatterplots for "d13C"
+display_scatterplots("d13C")
+
+```
+
+```{r display d15C}
+#display
+display_scatterplots("d15N")
+
+```
+
+```{r display TOC}
+#display
+display_scatterplots("umol.C_g.soil")
+
+```
+
+```{r display TN}
+#display
+display_scatterplots("umol.N_g.soil")
+
+```
+
+```{r display C to N}
+#display
+display_scatterplots("C_to_N")
+
+```
+
+```{r display TP}
+#display
+display_scatterplots("umol.TP_g.soil")
+
+```
+
+```{r display TIP}
+#display
+display_scatterplots("umol.TIP_g.soil")
+
+```
+
+```{r display TOP}
+#display
+display_scatterplots("umol.TOP_g.soil")
+
+```
+
+```{r display DNA conc}
+#display
+display_scatterplots("ngDNA_per_g_soil")
+
+```
+
+###Save plots
+```{r save scatterplots}
+# Example sub-directory paths for each dataframe (update with actual file paths)
+group_directories_plot <- list(
+  df.cn.1 = sub.directory.2.1.2.4.fp,
+  df.p.1 = sub.directory.2.1.2.4.fp,
+  m.1 = sub.directory.2.1.2.4.fp
+)
+
+# Loop through each dataframe and generate plots
+for (df_name in names(df_variables)) {
+  df <- get(df_name)  # Retrieve dataframe by name
+  df$row_id <- rownames(df)  # Add row names as an identifier
+  
+  for (var in df_variables[[df_name]]) {
+    # --- Generate Scatterplots ---
+    scatterplot_list <- scatter_plots_list[grepl(paste0(var, "_vs_"), names(scatter_plots_list))]
+
+    # Define file paths for different formats
+    directory <- group_directories_plot[[df_name]]
+
+    # Save scatterplots for this variable
+    for (scatter_name in names(scatterplot_list)) {
+      scatter_p <- scatterplot_list[[scatter_name]]
+      
+      # Define file paths
+      file_scat_jpeg <- paste0(directory, "/scatterplot_", scatter_name, ".jpeg")
+      file_scat_pdf  <- paste0(directory, "/scatterplot_", scatter_name, ".pdf")
+      file_scat_svg  <- paste0(directory, "/scatterplot_", scatter_name, ".svg")
+
+      # Save scatterplots in multiple formats
+      ggsave(file_scat_jpeg, plot = scatter_p, device = "jpeg", width = 6, height = 4, units = "in", dpi = 300)
+      ggsave(file_scat_pdf, plot = scatter_p, device = "pdf", width = 6, height = 4, units = "in")
+      ggsave(file_scat_svg, plot = scatter_p, device = "svg", width = 6, height = 4, units = "in")
+
+    }
+  }
+}
+
+```
+
+### Save files
+```{r save dataframes}
+# Define the filepath for saving CSVs
+save_directory <- sub.directory.2.1.1.fp
+
+# List of dataframes to save
+dataframes_to_save <- list(
+  df.cn.1 = df.cn.1,
+  df.p.1 = df.p.1,
+  m.1 = m.1
+)
+
+# Iterate through dataframes and save as CSV
+for (df_name in names(dataframes_to_save)) {
+  file_path <- paste0(save_directory, "/", df_name, ".csv")
+  
+  # Save dataframe as CSV
+  write.csv(dataframes_to_save[[df_name]], file = file_path, row.names = FALSE)
+  
+}
+
+```
+
+## End of Script  

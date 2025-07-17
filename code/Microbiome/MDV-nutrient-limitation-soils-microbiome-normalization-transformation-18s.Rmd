@@ -1,0 +1,439 @@
+---
+title: "McMurdo Dry Valleys Nutrient Limitation"
+subtitle: "  \n Normalization and/or Transformation of 18S DNA-seq Data"
+author: "Adam J. Solon"
+date: "`r Sys.Date()`"
+#output: html_document
+output: 
+  pdf_document:
+    toc: TRUE
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+    keep_md: true
+fontsize: 12pt
+#editor_options: 
+#  chunk_output_type: console
+---
+  
+# Script Summary  
+This script applies standard normalization and transformation of 18S SSU rRNA gene sequencing data to account for differences in library size (i.e., read depth) that confound downstream analyses.
+
+
+### Steps of this pipeline:  
+1.  Create and organize directories
+2.  Load R packages
+3.  Input files
+4.  Format Files
+5.  raw, untransformed sequences
+6.  rarefaction sequences
+7.  Save files and figures
+  
+```{r echo = FALSE, include = FALSE, set.seed(461)}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(cache = TRUE)
+
+```
+
+# Begin pipeline  
+```{r, echo = FALSE, include = FALSE}
+# Change identifiers to your system and file naming. 
+user <- "F:"
+directory <- "/Projects"
+project <- "/CryoHoles/Studies"
+study <- "/Soils-Nutrient-Limitation-Growth_Solon-et-al"
+
+sub.directory.2 <- "/analyses"
+sub.directory.2.1 <- "/microbiome"
+sub.directory.2.1.1 <- "/amplicons"
+sub.directory.2.1.1.1 <- "/18s"
+sub.directory.2.1.1.1.1 <- "/norm_transform"
+sub.directory.2.1.1.1.2 <- "/input"
+
+```
+
+### Set pathways and create directories  
+
+```{r set paths for pipeline}
+# First define the project and project directories. 
+
+# Create pathway for pipeline
+###################################################
+path.fp <- paste0(user, directory, project, study)
+if (!dir.exists(path.fp)) dir.create(path.fp)
+
+```
+
+```{r set paths for analyses}
+#sub.directory.2 analyses
+###################################################
+sub.directory.2.fp <- paste0(path.fp, sub.directory.2)
+if (!dir.exists(sub.directory.2.fp)) dir.create(sub.directory.2.fp)
+
+# Create sub-directory  microbiome
+###################################################
+sub.directory.2.1.fp <- paste0(sub.directory.2.fp, sub.directory.2.1)
+if (!dir.exists(sub.directory.2.1.fp)) dir.create(sub.directory.2.1.fp)
+
+# Create sub-directory amplicons
+###################################################
+sub.directory.2.1.1.fp <- paste0(sub.directory.2.1.fp, sub.directory.2.1.1)
+if (!dir.exists(sub.directory.2.1.1.fp)) dir.create(sub.directory.2.1.1.fp)
+
+# Create sub-directory 18s
+###################################################
+sub.directory.2.1.1.1.fp <- paste0(sub.directory.2.1.1.fp, sub.directory.2.1.1.1)
+if (!dir.exists(sub.directory.2.1.1.1.fp)) dir.create(sub.directory.2.1.1.1.fp)
+
+# Create sub-directory norm transform
+###################################################
+sub.directory.2.1.1.1.1.fp <- paste0(sub.directory.2.1.1.1.fp, sub.directory.2.1.1.1.1)
+if (!dir.exists(sub.directory.2.1.1.1.1.fp)) dir.create(sub.directory.2.1.1.1.1.fp)
+
+# Create sub-directory input
+###################################################
+sub.directory.2.1.1.1.2.fp <- paste0(sub.directory.2.1.1.1.fp, sub.directory.2.1.1.1.2)
+if (!dir.exists(sub.directory.2.1.1.1.2.fp)) dir.create(sub.directory.2.1.1.1.2.fp)
+
+```
+
+### Session Information  
+```{r Install and load packages}
+# install.packages("tidyverse")
+# install.packages("knitr")
+# install.packages("kableExtra")
+# install.packages("vegan")
+# install.packages("phyloseq")
+# install.packages("GGally")
+# install.packages("ggbreak")
+# install.packages("remotes")
+# remotes::install_github("david-barnett/microViz")
+
+library(tidyverse); packageVersion("tidyverse")
+library(knitr); packageVersion("knitr")
+library(kableExtra); packageVersion("kableExtra")
+library(vegan); packageVersion("vegan") 
+#library(ggbreak); packageVersion("ggbreak")
+#library(GGally); packageVersion("GGally")
+library(phyloseq); packageVersion("phyloseq")
+library(microViz); packageVersion("microViz")
+
+```  
+
+* r version: `r getRversion()`
+* RStudio version: `r rstudioapi::versionInfo()$version`
+* r packages:  
+  tidyverse, `r packageVersion("tidyverse")`  
+  knitr, `r packageVersion("knitr")`  
+  kableExtra, `r packageVersion("KableExtra")`  
+  vegan, `r packageVersion("vegan")`  
+  ggbreak, `r packageVersion("ggbreak")`  
+  GGally, `r packageVersion("GGally")`
+  phyloseq, `r packageVersion("phyloseq")` 
+  microViz, `r packageVersion("microViz")`
+  
+### Input files for Bonney Basin  
+1. ASV table filtered and subsest through r script - 'patch-seq-processing-dna-18s.Rmd'
+2. Mapping file subset through r script - 'patch-seq-processing-dna-18s.Rmd' 
+
+```{r input data files, include = FALSE}
+# input data files
+# ASV Table (from DADA2)
+asvTable.fp <- paste0(sub.directory.2.1.1.1.1.fp, "/MDV-nurtient-limitation-soils-ASv-tab-18s.txt") 
+
+# Mapping File (metadata relevant for study samples)
+mappingFile.fp <- paste0(sub.directory.2.1.1.1.1.fp, "/m.3.rds") 
+
+#input 18S ASV table w/ taxonomy
+a <- read.table(asvTable.fp, header = T, sep = "\t")
+
+#input metadata (i.e. mapping file)
+m <- readRDS(mappingFile.fp)
+
+```
+
+### Format files  
+1. Format data for use in phyloseq object
+2. Transform ASV table by assigning NAs and unknowns with the next lowest level with taxonomy assigned
+3. Agglomerate at the Genus level
+  
+```{r format & transform data 1}
+###ASV table
+#Remove taxonomy columns from ASV table
+#create data frame of only taxonomy
+t <- a %>% dplyr::select(ASV_ID, Domain:Ref_ID)
+
+#remove taxonomy columns from ASV table (i.e. select only the ASV ID column and all the sample columns)
+a.1 <- a %>% dplyr::select(-c(Domain:Ref_ID))
+
+#assign rownames as ASV IDs
+rownames(a.1) <- a.1$ASV_ID
+
+#remove ASV_ID column
+a.1$ASV_ID <- NULL
+
+#transpose
+a.2 <- as.data.frame(t(a.1))
+
+#set values as numeric
+a.2 <- a.2 %>%
+   mutate_all(as.numeric)
+
+```
+
+```{r format & transform data 2}
+###metadata
+#row names as SampleID
+row.names(m) <- m$AltID
+
+```
+
+```{r format & transform data 3}
+###Tax table
+#remove ASVs in genus column
+t.1 <- t #%>% separate_wider_delim(Genus, ";", names = c("Genus", NA))
+
+#as data frame
+t.1 <- as.data.frame(t.1)
+
+#row names as ASV ID
+row.names(t.1) <- t.1$ASV_ID
+
+#remove ASV ID column
+t.2 <- t.1 %>%
+  dplyr::select(Domain:Ref_ID)
+
+```
+
+```{r convert phyloseq object}
+#convert objects appropriate for phyloseq object
+#ASV table
+otu1 <- otu_table(as.matrix(a.2), taxa_are_rows=FALSE)
+
+#metadata
+sam1 <- sample_data(m) 
+
+#taxonomy table
+tax1 <- tax_table(as.matrix(t.2))
+
+#merge into phyloseq object
+phy <- phyloseq(otu1, sam1, tax1)
+
+```
+
+```{r}
+# Run tax_fix and tax_agg again
+phy.1 <- tax_fix(phy,
+  #min_length = 0,
+  unknowns = NA,
+  suffix_rank = "classified",
+  sep = "_",
+  anon_unique = TRUE,
+  verbose = TRUE
+)
+
+```
+
+```{r data transform agglomerate, eval = FALSE}
+#agglomerate to the genera level (to account for short read taxonomic assignment most reliable down to genus, not below)
+phy.2 <- tax_glom(phy.1, taxrank = "GenusSpecies")
+
+#save R object
+saveRDS(phy.2, paste0(sub.directory.2.1.1.1.2.fp, "/phy.2.rds"))
+
+```
+
+```{r import phyloseq object}
+#import R object
+phy.2 <- readRDS(paste0(sub.directory.2.1.1.1.2.fp, "/phy.2.rds"))
+
+```
+
+### Sequencing Data - Exploratory Data Analysis   
+1. Determine observed richness by genera
+2. Scatterplot 
+  a. library size v. dna concentration 
+  b. library size v. soil age
+  c. dna concentration v. soil age
+  d. observed richness v. soil age
+  e. observed richness v. library size
+  f. observed richness v. dna concentration
+3. Correlogram
+
+```{r observed richness EDA}
+#convert phyloseq object into ASV table - data.frame
+a.u <- t(as(otu_table(phy.2), "matrix")) 
+a.u.t <- as.data.frame(t(a.u))
+
+#calculate observed richness per sample, per soil age (NOTE- based on agglomeration at GENUS level, not ASV or species level)
+#per samples
+h <- specnumber(a.u.t)
+
+#as dataframe
+h.1 <- as.data.frame(h)
+
+#display
+h.1
+
+#convert phyloseq object into metadata table - data.frame
+df.u.1 <- as(sample_data(phy.2), "data.frame")
+
+#inner join
+df.u.2 <- merge(df.u.1, h.1, by=0)
+
+#remove 'row.names' column
+df.u.2$Row.names <- NULL
+
+#rename 'r' column as 'richness_18s'
+df.u.2 <- df.u.2 %>% rename(raw_richness_18S = h)
+
+#reorganize columns
+df.u.3 <- df.u.2
+
+```
+
+##Normalization by Rarefaction (i.e., repeated random subsampling without replacement for each sample- Schloss 2024) 
+```{r rare}
+#expected species richness in random subsamples of size XXX from the community ('XXX' = number of sequences)
+#Transform sequencing data to account for differences in library size between samples, see Schloss 2024
+
+# create row sum column for ASV total sequences
+a.sum <- a.u.t %>% mutate(total = rowSums(.)) %>%
+  dplyr::select(total)
+
+#determine number of sequences to use as cut-off for rarefy e.g., lowest number of sequences: (raremax <- min(rowSums(a.3))) or look at totals and pick a cut-off.  939 sequences is the lowest sum (sample C02.1)
+raremax <- min(rowSums(a.u.t))
+
+#rarefy
+a.rare <- rarefy(a.u.t, raremax)
+
+#plot 
+plot(h, a.rare, xlab = "Observed no. of genera", ylab = "Rarefied no. of genera", main = "Rarefaction (vegan) v. Observed")
+
+```
+
+```{r rarefaction curve}
+#rarefaction- draws a curve for each row of the input data
+#curves are evaluated using the interval of 'step' sample sizes, always including 1 and total sample size. If sample is specified, a vertical line is drawn at sample with horizontal lines for the rarefied species richnesses.
+
+#example
+#rarecurve(x, step = 1, sample, xlab = "Sample Size", ylab = "Species",
+ #         label = TRUE, col, lty, tidy = FALSE, ...)
+
+#plot
+rarecurve(a.u.t, step = 50, sample = raremax, col = "grey", cex = 0.6)
+
+```
+
+```{r rareslope}
+#rareslope- calculates the slope of rarecurve (derivative of rarefy) at given sample size; the sample need not be an integer.
+rareslope(a.u.t, raremax)
+
+```
+
+### Rarefaction - Exploratory Data Analysis   
+1. Determine rarefaction richness by genera
+2. Scatterplot 
+  a. rarefaction comparison- vegan v. phyloseq
+  b. rarefaction richness v. soil age
+  c. rarefaction richness v. library size
+  d. rarefaction richness v. dna concentration
+3. Correlogram 
+ 
+```{r data transform rarefy}
+#rarefy
+phy.r <- rarefy_even_depth(phy, 
+                           sample.size = 6122, #no. of reads for cut-off, number is generated from 'raremax' object above
+                           rngseed = 121, #set seed
+                           replace = FALSE, #subsample without replacement
+                           trimOTUs = TRUE, #drop ASVs that no longer remain after rarefy
+                           verbose = TRUE)
+
+#replace NA with next highest taxa level
+phy.r.1 <- tax_fix(phy.r,
+  #min_length = 0, #empty strings or " ", or "g__" etc. so it is helpful to replace them. (If this is unwanted: set min_length = 0 to avoid filtering on length
+  unknowns = NA,
+  suffix_rank = "classified",
+  sep = "_",
+  anon_unique = TRUE,
+  verbose = TRUE
+)
+
+```
+
+```{r data transform agglomerate rarefy, eval = FALSE}
+#agglomerate to the genera level (to account for short read taxonomic assignment most reliable down to genus, not below)
+phy.r.2 <- tax_glom(phy.r.1, taxrank = "GenusSpecies")
+
+#save R object
+saveRDS(phy.r.2, paste0(sub.directory.2.1.1.1.2.fp, "/phy.r.2.rds"))
+
+```
+
+```{r import phyloseq object rarefy}
+#import R object
+phy.r.2 <- readRDS(paste0(sub.directory.2.1.1.1.2.fp, "/phy.r.2.rds"))
+
+```
+
+```{r rarefy v library size check}
+#convert phyloseq object into ASV table - data.frame
+a.r <- t(as(otu_table(phy.r.2),"matrix")) 
+a.r.t <- as.data.frame(t(a.r))
+
+#calculate rarefied richness per sample, per soil age (NOTE- based on agglomeration at GENUS level, not ASV or species level)
+#per samples
+r <- specnumber(a.r.t)
+
+#as dataframe
+r.1 <- as.data.frame(r)
+
+#display
+r.1
+
+#convert phyloseq object into metadata table - data.frame
+df.r.1 <- as(sample_data(phy.r.2), "data.frame")
+
+#inner join
+df.r.2 <- merge(df.r.1, r.1, by=0)
+
+#remove 'row.names' column
+df.r.2$Row.names <- NULL
+
+#rename 'r' column as 'richness_18s'
+df.r.2 <- df.r.2 %>% rename(rarefied_richness_18S = r)
+
+#reorganize columns
+df.r.3 <- df.r.2 #[, c(1:23, 50, 24:49)]
+
+#add rarefied and raw richness together
+df.u.3$rarefied_richness_18S <- df.r.3$rarefied_richness_18S
+
+```
+
+\newpage 
+###Compare rarefaction vegan v. phyloseq 
+```{r compare rarefaction vegan v phyloseq}
+#plot 
+(p.vp <- plot(r, a.rare, xlab = "Phyloseq (no. of genera)", ylab = "Vegan (no. of genera)", main = "Rarefaction Comparison"))
+
+```
+
+
+##Save Files  
+###R objects & .txt files 
+```{r save files}
+# save as an R file 
+saveRDS(df.u.3, paste0(sub.directory.2.1.1.1.2.fp, "/m.rich.18s.rds"))
+
+#save as .txt file 
+write.table(df.u.3, file = paste0(sub.directory.2.1.1.1.2.fp, "/MDV-nutrient-limitation-soils-richness-18s.txt"), 
+            sep = "\t", row.names = FALSE, col.names = TRUE)
+
+```
+ 
+##References 
+Schloss, 2024 https://doi.org/10.1128/msphere.00354-23 
