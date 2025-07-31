@@ -17,7 +17,7 @@ fontsize: 12pt
 ---
   
 # Script Summary  
-This script summarizes the taxonomic composition of photoautotrophs of the bacteria and archaea (16S SSU rRNA gene), i.e., cyanobacteria, of samples from sediments collected in Taylor Vallye of the McMurdo Dry VAlleys.  The samples labelled 'bulk' are a homogenized mixtures of sediments collected in situ, while samples labelled 'CTRL', "N", "P", and "NP" are sediments exposed to a lab experiment with additions of nitrogen(N), phosphorus(P), both nutrients (NP), or neither (CTRL).
+This script summarizes the taxonomic composition of photoautotrophs of the bacteria and archaea (16S SSU rRNA gene), i.e., cyanobacteria, of samples from sediments collected in Taylor Valley of the McMurdo Dry Valleys.  The samples labelled 'bulk' are a homogenized mixtures of sediments collected in situ, while samples labelled 'CTRL', "N", "P", and "NP" are sediments exposed to a lab experiment with additions of nitrogen(N), phosphorus(P), both nutrients (NP), or neither (CTRL).
 
 ### Steps of this pipeline:  
 ### Steps of this pipeline:  
@@ -277,14 +277,52 @@ p.fam.face
 #subset for bonney
 df.cyano.fam.bn <- subset(df.cyano.fam.1, location == "Bonney")
 
-#create a color palette
-pal.bn <- c('#054907', "#0072B2", '#F0E68C', "#B8860B", "#7B68EE", '#FFA500', '#01153E', '#C5C9C7') 
+#add row for missing plate
+row.1 = data.frame(Sample = "BNM_21", location = "Bonney", treatment = "P")
+df.cyano.fam.bn.1 <- bind_rows(df.cyano.fam.bn, row.1)
 
+#remove data from plate that was overwatered
+df.cyano.fam.bn.1 <- df.cyano.fam.bn.1 %>%
+  mutate(
+    Family = if_else(Sample == "BNM_11", NA_character_, Family),
+    FamSum = if_else(Sample == "BNM_11", NA_real_, FamSum)) %>%
+  mutate(Sample = if_else(Sample == "BNM_11", "BNM_22", Sample))
+
+# Reorder 'treatment'
+df.cyano.fam.bn.1$treatment <- factor(df.cyano.fam.bn.1$treatment,
+                               levels = c("bulk", "CTRL", "N", "P", "NP"))
+
+#reorder factor levels of Phylum
+df.cyano.fam.bn.1$Family <- factor(df.cyano.fam.bn.1$Family, levels=c("Nostocaceae",
+                                                                "Nodosilineaceae",
+                                                                "Phormidesmiaceae",
+                                                                "Phormidiaceae",
+                                                                "Leptolyngbyaceae",
+                                                                "Chroococcidiopsaceae",
+                                                                "Pseudanabaenaceae",
+                                                                "other"))
+#create a color palette
+pal.bn <- c('#054907', "#0072B2", '#F0E68C', "#B8860B", "#7B68EE", '#FFA500', '#01153E', 'grey50') 
+
+#annotations for missing plates
+df.anno <- data.frame(
+  Sample = c("BNM_21", "BNM_22"),  # Replace with actual x-axis values
+  FamSum = c(10, 10),                 # Replace with desired y-axis positions
+  treatment = c("P", "NP"), # Facet categories to appear in
+  label = "x"
+)
+
+#treatment factor
+df.anno$treatment <- factor(df.anno$treatment, levels = levels(df.cyano.fam.bn.1$treatment))
+
+# Reorder 'treatment'
+df.cyano.fam.bn.1$treatment <- factor(df.cyano.fam.bn.1$treatment,
+                               levels = c("bulk", "CTRL", "N", "P", "NP"))
 # Create the bar plot
-p.fam.bn <- ggplot(data = df.cyano.fam.bn, aes(x = Sample, y = FamSum, fill = Family)) +
-  #geom_bar(stat = "identity", position = "stack", color = "black") +
+p.fam.bn <- ggplot(data = df.cyano.fam.bn.1, aes(x = Sample, y = FamSum, fill = Family)) +
+   geom_text(data = df.anno, aes(x = Sample, y = FamSum, label = label), color = "black", size = 6, inherit.aes = FALSE) +  
   geom_bar(stat = "identity", position = "stack") +
-  scale_fill_manual(values = pal.bn) +
+  scale_fill_manual(values = pal.bn, na.translate = FALSE) +
   scale_y_continuous(expand = c(0,0)) +
   labs(title = "", subtitle = "Bonney Basin", fill = "Taxa") +
   guides(fill = guide_legend(nrow = 2)) +
@@ -296,14 +334,20 @@ p.fam.bn <- ggplot(data = df.cyano.fam.bn, aes(x = Sample, y = FamSum, fill = Fa
           axis.title.y = element_blank(),
           axis.text.y = element_text(size = 18),
           legend.position = "bottom",
-          legend.background = element_rect(fill = "grey90", colour = "grey50", size = 0.5),
+          legend.background = element_rect(fill = "grey98", colour = "grey50", size = 0.5),
           legend.text = element_text(size = 12),
           legend.title = element_text(size = 14), 
-          strip.text.x = element_text(size = 14)
-  )
+          strip.text.x = element_text(size = 14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_rect(fill = "grey95", colour = NA),
+          axis.line = element_blank())
 
 #display
 p.fam.bn
+
+#save R object
+saveRDS(p.fam.bn, paste0(sub.directory.2.1.1.1.2.2.fp, "/p.fam.bn.rds"))
 
 ```
 
@@ -312,7 +356,7 @@ p.fam.bn
 df.cyano.fam.hr <- subset(df.cyano.fam.1, location == "Hoare")
 
 #create a color palette
-pal.hr <- c('#054907', "#0072B2", '#F0E68C', "#B8860B", "#7B68EE", '#FFA500', '#C5C9C7') 
+pal.hr <- c('#054907', "#0072B2", '#F0E68C', "#B8860B", "#7B68EE", '#FFA500', 'grey50') 
  
 # Create the bar plot
 p.fam.hr <- ggplot(data = df.cyano.fam.hr, aes(x = Sample, y = FamSum, fill = Family)) +
@@ -337,6 +381,9 @@ p.fam.hr <- ggplot(data = df.cyano.fam.hr, aes(x = Sample, y = FamSum, fill = Fa
 #display
 p.fam.hr
 
+#save R object
+saveRDS(p.fam.hr, paste0(sub.directory.2.1.1.1.2.2.fp, "/p.fam.hr.rds"))
+
 ```
 
 ```{r plot fam fx}
@@ -354,7 +401,7 @@ fx_labels <- c(
 )
 
 #create a color palette
-pal.fx <- c('#054907', "#0072B2", '#F0E68C', "#B8860B", "#7B68EE", '#FFA500', '#C5C9C7') 
+pal.fx <- c('#054907', "#0072B2", '#F0E68C', "#B8860B", "#7B68EE", '#FFA500', 'grey50') 
 
 # Create the bar plot
 p.fam.fx <- ggplot(data = df.cyano.fam.fx, aes(x = Sample, y = FamSum, fill = Family)) +
@@ -379,6 +426,9 @@ p.fam.fx <- ggplot(data = df.cyano.fam.fx, aes(x = Sample, y = FamSum, fill = Fa
 
 #display
 p.fam.fx
+
+#save R object
+saveRDS(p.fam.fx, paste0(sub.directory.2.1.1.1.2.2.fp, "/p.fam.fx.rds"))
 
 ```
 
@@ -410,16 +460,20 @@ ggsave(filename = paste0(file_path, ".jpeg"), plot = combined_plot, width = 11, 
 ggsave(filename = paste0(file_path, ".pdf"), plot = combined_plot, width = 11, height = 8.5)
 ggsave(filename = paste0(file_path, ".svg"), plot = combined_plot, width = 11, height = 8.5)
 
+#save R object
+saveRDS(combined_plot, paste0(sub.directory.2.1.1.1.2.2.fp, "/p.16s.rds"))
+
 ```
 
 ```{r combine plots}
 # Modify each plot to remove extra margins and spacing
-p.fam.bn.1 <- p.fam.bn + theme(plot.margin = margin(0, 0, 0, 0))
+p.fam.bn.2 <- p.fam.bn.1 + theme(legend.position = "none",
+                               plot.margin = margin(0, 0, 0, 0))
 p.fam.hr.1 <- p.fam.hr + theme(plot.margin = margin(0, 0, 0, 0))
 p.fam.fx.1 <- p.fam.fx + theme(plot.margin = margin(0, 0, 0, 0))
 
 # Combine the plots into one figure, each in its own row
-p.fam.comb <- p.fam.bn.1 / p.fam.hr.1 / p.fam.fx.1 
+p.fam.comb <- p.fam.bn.2 / p.fam.hr.1 / p.fam.fx.1 
 
 # Display 
 p.fam.comb
@@ -429,7 +483,7 @@ p.fam.comb
 ```{r save plots}
 # Define parameters
 file_names <- c("/MDV-nutrient-limitation-soils-taxa-summary-16s-facet", 
-                "/MDV-nutrient-limitation-soils-taxa-summary-16s-combine")
+                "/MDV-nutrient-limitation-soils-taxa-summary-16s-no-legend")
 plots <- list(p.fam.face, p.fam.comb)
 formats <- c("jpeg", "pdf", "svg")
 
@@ -447,8 +501,11 @@ for (i in seq_along(plots)) {
 ```
 
 ```{r summary statistics}
+#remove overwatered plate
+df.cyano.fam.2 <- df.cyano.fam.1[df.cyano.fam.1$Sample != "BNM_11", ]
+
 #calculate mean and se
-cyano_fam_sum_stats <- df.cyano.fam.1 %>%
+cyano_fam_sum_stats <- df.cyano.fam.2 %>%
   group_by(location, treatment, Family) %>%
   summarise(
     Family = first(Family),
@@ -462,7 +519,7 @@ cyano_fam_sum_stats <- df.cyano.fam.1 %>%
 print(cyano_fam_sum_stats)
 
 # Save the dataframe as CSV
-write.csv(cyano_fam_sum_stats,  file.path(sub.directory.2.1.1.1.2.1.fp, paste0("Cyanobacteria_Family_summary_stats.csv")), row.names = FALSE)
+write.csv(cyano_fam_sum_stats,  file.path(sub.directory.2.1.1.1.2.1.fp, "Cyanobacteria_Family_summary_stats.csv"), row.names = FALSE)
 
 ```
 
@@ -471,8 +528,8 @@ write.csv(cyano_fam_sum_stats,  file.path(sub.directory.2.1.1.1.2.1.fp, paste0("
 sink(file.path(sub.directory.2.1.1.1.2.1.fp, "Cyanobacteria_Family_inferential_stats.txt"))
 
 # Loop through unique locations and Families
-for (loc in unique(df.cyano.fam.1$location)) {
-  for (fam in unique(df.cyano.fam.1$Family)) {
+for (loc in unique(df.cyano.fam.2$location)) {
+  for (fam in unique(df.cyano.fam.2$Family)) {
     
     # Skip Family "other"
     if (fam == "other") {
@@ -481,7 +538,7 @@ for (loc in unique(df.cyano.fam.1$location)) {
     }
     
     # Subset data
-    subset_data <- subset(df.cyano.fam.1, location == loc & Family == fam)
+    subset_data <- subset(df.cyano.fam.2, location == loc & Family == fam)
     
     # Ensure there are enough observations
     if (nrow(subset_data) < 2) {
@@ -563,8 +620,8 @@ sink()
 sink(file.path(sub.directory.2.1.1.1.2.1.fp, "Cyanobacteria_Family_post_hoc_tukey.txt"))
 
 # Loop through unique locations and Familys
-for (loc in unique(df.cyano.fam.1$location)) {
-  for (fam in unique(df.cyano.fam.1$Family)) {
+for (loc in unique(df.cyano.fam.2$location)) {
+  for (fam in unique(df.cyano.fam.2$Family)) {
     
     # Skip Family "other"
     if (fam == "other") {
@@ -572,7 +629,7 @@ for (loc in unique(df.cyano.fam.1$location)) {
     }
     
     # Subset data
-    subset_data <- subset(df.cyano.fam.1, location == loc & Family == fam)
+    subset_data <- subset(df.cyano.fam.2, location == loc & Family == fam)
     
     # Ensure treatment has at least two levels
     if (length(unique(subset_data$treatment)) < 2) {
@@ -611,8 +668,8 @@ sink()
 sink(file.path(sub.directory.2.1.1.1.2.1.fp, "Cyanobacteria_Family_post_hoc_dunn.txt"))
 
 # Loop through unique locations and Familys
-for (loc in unique(df.cyano.fam.1$location)) {
-  for (fam in unique(df.cyano.fam.1$Family)) {
+for (loc in unique(df.cyano.fam.2$location)) {
+  for (fam in unique(df.cyano.fam.2$Family)) {
     
     # Skip Family "other"
     if (fam == "other") {
@@ -620,7 +677,7 @@ for (loc in unique(df.cyano.fam.1$location)) {
     }
 
     # Subset data
-    subset_data <- subset(df.cyano.fam.1, location == loc & Family == fam)
+    subset_data <- subset(df.cyano.fam.2, location == loc & Family == fam)
 
     # Ensure treatment has at least two levels
     if (length(unique(subset_data$treatment)) < 2) {
@@ -654,4 +711,4 @@ sink()
 
 ```
 
-## End of Script  
+## End of Script 
