@@ -122,6 +122,9 @@ library(knitr); packageVersion("knitr")
 library(tidyverse); packageVersion("tidyverse")
 library(dplyr); packageVersion("dplyr")
 library(phyloseq); packageVersion("phyloseq")
+library(patchwork)  # Load the patchwork package
+library(gridExtra)
+library(grid)
 
 ```  
 
@@ -456,10 +459,11 @@ df.photo.cld.1$clade <- factor(df.photo.cld.1$clade, levels=c("diatoms",
                                                               "yellow-green_algae",
                                                               "green_algae",
                                                               "golden_algae",
-                                                              "dinoflagellates",
                                                               "other"))
 
 ```
+
+###keep unused factors of x-axis... scale_x_discrete(drop = FALSE)
 
 ```{r plot cld}
 #create facet labels
@@ -474,11 +478,10 @@ cld_legend_labels <- c("diatoms" = "Diatoms",
                           "green_algae" = "Green Algae",
                           "yellow-green_algae" = "Yellow-Green Algae",
                           "golden_algae" = "Golden Algae",
-                          "dinoflagellates" = "Dinoflagellates",
                           "other" = "other")
 
 #create a color palette
-pal.1 <- c("#0072B2", '#F0E68C', "#00C000", "#B8860B", "#9A0EEA", '#C5C9C7')
+pal.1 <- c("#0072B2", '#F0E68C', "#00C000", "#B8860B", '#C5C9C7')
    
 
 # Create the bar plot
@@ -505,14 +508,46 @@ p.cld.face
 #subset for bonney
 df.photo.cld.bn <- subset(df.photo.cld.1, location == "Bonney")
 
+#add row for missing plate
+row.1 = data.frame(Sample = "BNM_21", location = "Bonney", treatment = "P")
+df.photo.cld.bn.1 <- bind_rows(df.photo.cld.bn, row.1)
+
+#remove data from plate that was overwatered
+df.photo.cld.bn.1 <- df.photo.cld.bn.1 %>%
+  mutate(
+    clade = if_else(Sample == "BNM_11", NA_character_, clade),
+    CLDSum = if_else(Sample == "BNM_11", NA_real_, CLDSum)) %>%
+  mutate(Sample = if_else(Sample == "BNM_11", "BNM_22", Sample))
+
+# Reorder 'treatment'
+df.photo.cld.bn.1$treatment <- factor(df.photo.cld.bn.1$treatment,
+                               levels = c("bulk", "CTRL", "N", "P", "NP"))
+
+#reorder factor levels of Phylum
+df.photo.cld.bn.1$clade <- factor(df.photo.cld.bn.1$clade, levels=c("diatoms",
+                                                              "yellow-green_algae",
+                                                              "green_algae",
+                                                              "golden_algae",
+                                                              "other"))
+#annotations for missing plates
+df.anno <- data.frame(
+  Sample = c("BNM_21", "BNM_22"),  # Replace with actual x-axis values
+  CLDSum = c(10, 10),                 # Replace with desired y-axis positions
+  treatment = c("P", "NP"), # Facet categories to appear in
+  label = "x"
+)
+
+#treatment factor
+df.anno$treatment <- factor(df.anno$treatment, levels = levels(df.photo.cld.bn.1$treatment))
+
 #create a color palette
-pal.bn <- c("#0072B2", '#F0E68C', "#00C000", "#B8860B", '#C5C9C7')
+pal.bn <- c("#0072B2", '#F0E68C', "#00C000", "#B8860B", "grey50")
    
 # Create the bar plot
-p.cld.bn <- ggplot(data = df.photo.cld.bn, aes(x = Sample, y = CLDSum, fill = clade)) +
-  #geom_bar(stat = "identity", position = "stack", color = "black") +
+p.cld.bn <- ggplot(data = df.photo.cld.bn.1, aes(x = Sample, y = CLDSum, fill = clade)) +
+  geom_text(data = df.anno, aes(x = Sample, y = CLDSum, label = label), color = "black", size = 6, inherit.aes = FALSE) +  
   geom_bar(stat = "identity", position = "stack") +
-  scale_fill_manual(values = pal.bn, labels = cld_legend_labels) +
+  scale_fill_manual(values = pal.bn, labels = cld_legend_labels, na.translate = FALSE) +
   scale_y_continuous(expand = c(0,0)) +
   labs(title = "", subtitle = "Bonney Basin", fill = "Taxa") +
   guides(fill = guide_legend(nrow = 2)) +
@@ -524,14 +559,20 @@ p.cld.bn <- ggplot(data = df.photo.cld.bn, aes(x = Sample, y = CLDSum, fill = cl
           axis.title.y = element_blank(),
           axis.text.y = element_text(size = 18),
           legend.position = "bottom",
-          legend.background = element_rect(fill = "grey90", colour = "grey50", size = 0.5),
+          legend.background = element_rect(fill = "grey98", colour = "grey50", size = 0.5),
           legend.text = element_text(size = 12),
           legend.title = element_text(size = 14), 
-          strip.text.x = element_text(size = 14)
-  )
+          strip.text.x = element_text(size = 14),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_rect(fill = "grey95", colour = NA),
+          axis.line = element_blank())
 
 #display
 p.cld.bn
+
+#save R object
+saveRDS(p.cld.bn, paste0(sub.directory.2.1.1.1.2.2.fp, "/p.cld.bn.rds"))
 
 ```
 
@@ -566,6 +607,9 @@ p.cld.hr <- ggplot(data = df.photo.cld.hr, aes(x = Sample, y = CLDSum, fill = cl
 
 #display
 p.cld.hr
+
+#save R object
+saveRDS(p.cld.hr, paste0(sub.directory.2.1.1.1.2.2.fp, "/p.cld.hr.rds"))
 
 ```
 
@@ -610,13 +654,12 @@ p.cld.fx <- ggplot(data = df.photo.cld.fx, aes(x = Sample, y = CLDSum, fill = cl
 #display
 p.cld.fx
 
+#save R object
+saveRDS(p.cld.fx, paste0(sub.directory.2.1.1.1.2.2.fp, "/p.cld.fx.rds"))
+
 ```
 
 ```{r}
-library(patchwork)  # Load the patchwork package
-library(gridExtra)
-library(grid)
-
 # Extract the legend from bonney plot
 legend <- ggplotGrob(p.cld.bn)$grobs[[which(sapply(ggplotGrob(p.cld.bn)$grobs, function(x) x$name) == "guide-box")]]
 
@@ -628,7 +671,7 @@ legend_patch <- wrap_elements(full = legend)
 
 #combine plots
 combined_plot <- (legend_patch / p.cld.bn.1 / p.cld.hr / p.cld.fx) + 
-  plot_layout(heights = c(1, 3, 3, 3))  # Adjust the last item's height
+  plot_layout(heights = c(1, 3, 3, 3))  # Adjust the first item's height
 
 #combined_plot <- (p.cld.bn.1 / p.cld.hr / p.cld.fx / legend_patch) + 
  # plot_layout(heights = c(3, 3, 3, 1))  # Adjust the last item's height
@@ -644,18 +687,19 @@ ggsave(filename = paste0(file_path, ".jpeg"), plot = combined_plot, width = 11, 
 ggsave(filename = paste0(file_path, ".pdf"), plot = combined_plot, width = 11, height = 8.5)
 ggsave(filename = paste0(file_path, ".svg"), plot = combined_plot, width = 11, height = 8.5)
 
+#save R object
+saveRDS(combined_plot, paste0(sub.directory.2.1.1.1.2.2.fp, "/p.18s.rds"))
+
 ```
 
 ```{r combine plots}
-library(patchwork)  # Load the patchwork package
-
 # Modify each plot to remove extra margins and spacing
-p.cld.bn.1 <- p.cld.bn.1 + theme(plot.margin = margin(0, 0, 0, 0))
-p.cld.hr.1 <- p.cld.hr + theme(plot.margin = margin(0, 0, 0, 0))
-p.cld.fx.1 <- p.cld.fx + theme(plot.margin = margin(0, 0, 0, 0))
+p.cld.bn.2 <- p.cld.bn.1 + theme(plot.margin = margin(0, 0, 1, 0))
+p.cld.hr.1 <- p.cld.hr + theme(plot.margin = margin(1, 0, 0, 0))
+p.cld.fx.1 <- p.cld.fx + theme(plot.margin = margin(1, 0, 0, 0))
 
 # Combine the plots into one figure, each in its own row
-p.cld.comb <- p.cld.bn.1 / p.cld.hr.1 / p.cld.fx.1 
+p.cld.comb <- p.cld.bn.2 / p.cld.hr.1 / p.cld.fx.1 
 
 # Display 
 p.cld.comb
@@ -665,7 +709,7 @@ p.cld.comb
 ```{r save plots}
 # Define parameters
 file_names <- c("/MDV-nutrient-limitation-soils-taxa-summary-18s-facet", 
-                "/MDV-nutrient-limitation-soils-taxa-summary-18s-combine")
+                "/MDV-nutrient-limitation-soils-taxa-summary-18s-no-legend")
 plots <- list(p.cld.face, p.cld.comb)
 formats <- c("jpeg", "pdf", "svg")
 
@@ -683,8 +727,11 @@ for (i in seq_along(plots)) {
 ```
 
 ```{r summary statistics}
+#remove overwatered plate
+df.photo.cld.2 <- df.photo.cld.1[df.photo.cld.1$Sample != "BNM_11", ]
+
 #calculate mean and se
-photo_cld_sum_stats <- df.photo.cld.1 %>%
+photo_cld_sum_stats <- df.photo.cld.2 %>%
   group_by(location, treatment, clade) %>%
   summarise(
     clade = first(clade),
@@ -711,8 +758,8 @@ library(nortest)  # For normality tests
 sink(file.path(sub.directory.2.1.1.1.2.1.fp, "photosynthetic_euks_clade_inferential_stats.txt"))
 
 # Loop through unique locations and clades
-for (loc in unique(df.photo.cld.1$location)) {
-  for (cld in unique(df.photo.cld.1$clade)) {
+for (loc in unique(df.photo.cld.2$location)) {
+  for (cld in unique(df.photo.cld.2$clade)) {
     
     # Skip clade "other"
     if (cld == "other") {
@@ -721,7 +768,7 @@ for (loc in unique(df.photo.cld.1$location)) {
     }
     
     # Subset data
-    subset_data <- subset(df.photo.cld.1, location == loc & clade == cld)
+    subset_data <- subset(df.photo.cld.2, location == loc & clade == cld)
     
     # Ensure there are enough observations
     if (nrow(subset_data) < 2) {
@@ -790,8 +837,8 @@ library(multcomp)
 sink(file.path(sub.directory.2.1.1.1.2.1.fp, "photosynthetic_euks_clade_post_hoc_tukey.txt"))
 
 # Loop through unique locations and clades
-for (loc in unique(df.photo.cld.1$location)) {
-  for (cld in unique(df.photo.cld.1$clade)) {
+for (loc in unique(df.photo.cld.2$location)) {
+  for (cld in unique(df.photo.cld.2$clade)) {
     
     # Skip clade "other"
     if (cld == "other") {
@@ -799,7 +846,7 @@ for (loc in unique(df.photo.cld.1$location)) {
     }
     
     # Subset data
-    subset_data <- subset(df.photo.cld.1, location == loc & clade == cld)
+    subset_data <- subset(df.photo.cld.2, location == loc & clade == cld)
     
     # Ensure treatment has at least two levels
     if (length(unique(subset_data$treatment)) < 2) {
@@ -841,8 +888,8 @@ library(dunn.test)
 sink(file.path(sub.directory.2.1.1.1.2.1.fp, "photosynthetic_euks_clade_post_hoc_dunn.txt"))
 
 # Loop through unique locations and clades
-for (loc in unique(df.photo.cld.1$location)) {
-  for (cld in unique(df.photo.cld.1$clade)) {
+for (loc in unique(df.photo.cld.2$location)) {
+  for (cld in unique(df.photo.cld.2$clade)) {
     
     # Skip clade "other"
     if (cld == "other") {
@@ -850,7 +897,7 @@ for (loc in unique(df.photo.cld.1$location)) {
     }
 
     # Subset data
-    subset_data <- subset(df.photo.cld.1, location == loc & clade == cld)
+    subset_data <- subset(df.photo.cld.2, location == loc & clade == cld)
 
     # Ensure treatment has at least two levels
     if (length(unique(subset_data$treatment)) < 2) {
