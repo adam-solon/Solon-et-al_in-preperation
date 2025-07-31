@@ -4,7 +4,6 @@ subtitle: "  \n Biogeochemical Data - Summary and Inferential Statistics"
 author: "Adam J. Solon"
 date: "`r Sys.Date()`"
 #output: html_document
-output: 
   pdf_document:
     toc: TRUE
     fig_width: 7
@@ -1295,13 +1294,50 @@ m.3 <- m.2 %>%
            n_add = treatment %in% c("N", "NP"),  # TRUE if N or NP
            p_add = treatment %in% c("P", "NP"))   # TRUE if P or NP
 
+#identify technical replicates
+df.cn.clean <- df.cn.3 %>%
+  mutate(SampleID_base = str_remove(SampleID, "[a-zA-Z]$"))
+
+#average tech reps
+df.cn.reps <- df.cn.clean %>%
+  filter(SampleID != SampleID_base) %>%  # Only lettered suffixes
+  group_by(SampleID_base) %>%
+  summarise(
+    SampleID = unique(SampleID_base),
+    Study = first(Study),
+    Location = first(Location),
+    sample_type = first(sample_type),
+    Substrate = first(Substrate),
+    C_perc = first(C_perc),
+    N_perc = first(N_perc),
+    d13C = first(d13C),
+    d15N = first(d15N),
+    umol.C_g.soil = mean(umol.C_g.soil, na.rm = TRUE),
+    umol.N_g.soil = mean(umol.N_g.soil, na.rm = TRUE),
+    C_to_N = mean(C_to_N, na.rm = TRUE),
+    geog = first(geog),
+    treatment = first(treatment),
+    n_add = first(n_add),
+    p_add = first(p_add),
+    .groups = "drop")
+
+#combine average tech reps into dataframe
+df.cn.solo <- df.cn.3 %>%
+  filter(!str_detect(SampleID, "[a-zA-Z]$"))
+
+#combine into dataframe
+df.cn.4 <- bind_rows(df.cn.solo, df.cn.reps)
+
 ```
 
 ### Summary Stats  
 ```{r sum stats treatment}
+#remove overwatered plate
+df.cn.5 <- df.cn.4[df.cn.4$SampleID != "BNM_11", ]
+
 # Define the list of dataframes to iterate through
 dataframes_to_process <- list(
-  df.cn.3 = df.cn.3,
+  df.cn.5 = df.cn.5,
   m.3 = m.3
 )
 
@@ -1379,7 +1415,7 @@ for (df_name in names(summary_study_location_treatment)) {
 ANOVA assumes normality and homogeneity of variances for residuals  
 ```{r aov models}
 # Define datasets, locations, and response variables
-datasets.e.1 <- list(df.cn.3 = c("umol.C_g.soil", "umol.N_g.soil", "C_to_N"),
+datasets.e.1 <- list(df.cn.5 = c("umol.C_g.soil", "umol.N_g.soil", "C_to_N"),
                  m.3     = c("ngDNA_per_g_soil"))
 locations <- c("Bonney", "Hoare", "Fryxell")
 
@@ -1471,11 +1507,11 @@ for (df_name in names(datasets.e.1)) {
 Welch ANOVA  - relaxes assumption of homogeneity of variance of residuals
 ```{r welch aov models}
 # Define datasets and treatment levels
-datasets.e.2 <- list(df.cn.3, m.3)
+datasets.e.2 <- list(df.cn.5, m.3)
 locations <- c("Fryxell", "Bonney")
 
 # Define variables for each test
-welch_vars <- list("Fryxell" = "C_to_N", "Bonney" = c("umol.N_g.soil", "umol.C_g.soil"))
+welch_vars <- list("Fryxell" = "C_to_N", "Bonney" = c("umol.N_g.soil"))
 
 # Initialize lists for results
 welch_results_exp <- list()
@@ -1524,9 +1560,9 @@ for (location in locations) {
 Robust Regression  (weighted least squares) - relaxes assumptions of normality and homogeneity of variance for model residuals
 ```{r rob reg model}
 # Define datasets and treatment levels
-datasets.e.3 <- list(df.cn.3, m.3)
-locations <- c("Fryxell", "Bonney")
-robust_vars <- list("Fryxell" = "umol.C_g.soil", "Bonney" = "ngDNA_per_g_soil")
+datasets.e.3 <- list(df.cn.5 , m.3)
+locations <- c("Bonney")
+robust_vars <- list("Bonney" = "ngDNA_per_g_soil")
 
 # Initialize lists to store results
 robust_regression_models_exp <- list()
@@ -1665,12 +1701,6 @@ print(sig_groups_emmeans_exp)
 ## Plots  
 ```{r define objects cn}
 # Define custom treatment colors for each Location
-custom_treatment_colors_list <- list(
-  Bonney  = c("bulk" = "grey50", "CTRL" = "tan", "N" = "tan", "P" = "#01665E", "NP" = "#01665E"),
-  Hoare   = c("bulk" = "grey50", "CTRL" = "tan", "N" = "#01665E", "P" = "tan", "NP" = "#01665E"),
-  Fryxell = c("bulk" = "grey50", "CTRL" = "tan", "N" = "#01665E", "P" = "#01665E", "NP" = "#01665E")
-)
-
 custom_treatment_shades_list <- list(
   Bonney  = c("bulk" = "grey90", "CTRL" = "gray70", "N" = "gray50", "P" = "gray30", "NP" = "gray10"),
   Hoare   = c("bulk" = "#D2B48C","CTRL" = "#C19A6B","N" = "#A67B5B", "P" = "#8B5A2B", "NP"   = "#5C4033"),
@@ -1687,7 +1717,7 @@ selected_vars_cn <- c("umol.C_g.soil", "umol.N_g.soil", "C_to_N")
 ### C, N plots  
 ```{r create - save plots cn}
 # Filter for this study
-df_cn_filtered <- df.cn.3 %>% filter(Study == "Solon" & !is.na(treatment))
+df_cn_filtered <- df.cn.5 %>% filter(Study == "Solon" & !is.na(treatment))
 df_cn_filtered$treatment <- factor(df_cn_filtered$treatment, levels = c("bulk", "CTRL", "N", "P", "NP"))
 
 # Initialize list to store plots
@@ -2002,227 +2032,6 @@ file_path <- file.path(sub.directory.1.1.2.2.fp,
 ggsave(filename = paste0(file_path, ".jpeg"), plot = combined_cn_all, width = 8.5, height = 11, dpi = 300)
 ggsave(filename = paste0(file_path, ".pdf"), plot = combined_cn_all, width = 8.5, height = 11)
 ggsave(filename = paste0(file_path, ".svg"), plot = combined_cn_all, width = 8.5, height = 11)
-
-```
-
-### DNA concentration    
-```{r define objects p, dna}
-# Define selected variables for df.cn.2
-selected_vars_dna <- c("ngDNA_per_g_soil")
-
-# Define fixed y-axis ranges
-y_axis_limits_d <- list(
-  "ngDNA_per_g_soil" = c(0, 5000)
-)
-
-y_breaks_d <- list(
-  "ngDNA_per_g_soil" = c(0, 1000, 2000, 3000, 4000, 5000)
-)
-
-```
-
-```{r plot dna}
-# Filter dataset for the study
-df_m_filtered <- m.3 %>%
-  filter(Study == "Solon" & !is.na(treatment)) %>%
-  mutate(treatment = factor(treatment, levels = c("bulk", "CTRL", "N", "P", "NP")))
-
-# Initialize list to store plots
-treatment_plots_dna <- list()
-
-for (var in selected_vars_dna) {
-  for (location_name in c("Bonney", "Hoare", "Fryxell")) {
-    df_location_filtered <- df_m_filtered %>% filter(Location == location_name)
-
-    if (!(var %in% colnames(df_location_filtered))) {
-      print(paste("Skipping variable", var, "in location", location_name, "since it is not found in the dataframe"))
-      next
-    }
-
-    df_var_filtered <- df_location_filtered %>% filter(!is.na(.data[[var]]))
-
-    if (nrow(df_var_filtered) == 0) {
-      print(paste("Skipping variable", var, "in location", location_name, "since no valid data remains after filtering"))
-      next
-    }
-
-    summary_stats <- df_var_filtered %>%
-      group_by(treatment) %>%
-      summarise(mean = mean(.data[[var]], na.rm = TRUE),
-                se = sd(.data[[var]], na.rm = TRUE) / sqrt(n()), .groups = "drop")
-
-    colors <- custom_treatment_colors_list[[location_name]]
-
-    # Determine y-axis limits dynamically
-    y_range <- range(df_var_filtered[[var]], na.rm = TRUE)
-    y_padding <- diff(y_range) * 0.15
-    y_min <- y_range[1] - y_padding
-    y_max <- y_range[2] + y_padding
-
-    p <- ggplot(df_var_filtered, aes(x = treatment, y = .data[[var]], fill = treatment)) +
-      geom_jitter(size = 4, shape = 21, color = "black", width = 0.1, alpha = 0.55) +
-      geom_pointrange(data = summary_stats, aes(x = treatment, y = mean, ymin = mean - se, ymax = mean + se, fill = treatment),
-                      size = 2, shape = 21, color = "black", stroke = 0.5, alpha = 0.35) +
-      labs(title = paste(location_name), x = "", y = y_axis_labels[[var]]) +
-      guides(fill = "none") +
-      scale_fill_manual(values = colors) +
-      theme_bw() +
-      theme(panel.grid.minor.x = element_blank(),
-            panel.grid.major.x = element_blank(),
-            panel.grid.minor.y = element_blank())
-
-    # Apply significance groupings **only if they exist**
-    sig_grp_key <- paste(location_name, var, sep = "_")
-    
-    if (sig_grp_key == "Bonney_ngDNA_per_g_soil") {
-      # Manually enter significance groupings
-      sig_grp <- data.frame(
-        treatment = c("bulk", "CTRL", "N", "P", "NP"),
-        sig_grps = c("a", "ab", "b", "c", "d")  # Replace these with your manual assignments
-      )
-    } else {
-      sig_grp <- sig_groups_emmeans_exp[[sig_grp_key]]
-    }
-
-    if (!is.null(sig_grp) && nrow(sig_grp) > 0) {
-      label.y <- y_max  # Place significance groupings at the very top of the graph
-
-      p <- p + geom_text(data = sig_grp, aes(x = treatment, y = label.y, label = sig_grps),
-                         size = 6, fontface = "bold", color = "black")
-    }
-
-    # Store plot in list and print it
-    plot_name <- paste(location_name, var, sep = "_")
-    treatment_plots_dna[[plot_name]] <- p
-    print(p)
-
-    # Save plot in multiple formats with correct names
-    file_name <- paste0("MDV-soils-nutrient-limitation-Expr-", var, "_combined")
-
-    ggsave(filename = file.path(sub.directory.1.1.2.2.2.fp, paste0(file_name, ".jpeg")), plot = p, width = 10, height = 6, dpi = 300)
-    ggsave(filename = file.path(sub.directory.1.1.2.2.2.fp, paste0(file_name, ".pdf")), plot = p, width = 10, height = 6)
-    ggsave(filename = file.path(sub.directory.1.1.2.2.2.fp, paste0(file_name, ".svg")), plot = p, width = 10, height = 6)
-  }
-}
-
-```
-
-```{r plot dna for combine}
-# Initialize list to store plots
-treatment_plots_dna_2 <- list()
-
-# Iterate over variables and locations
-for (var in selected_vars_dna) {
-  for (location_name in c("Bonney", "Hoare", "Fryxell")) {
-
-    # Subset location
-    df_location_filtered <- df_m_filtered %>% filter(Location == location_name)
-
-    if (!(var %in% colnames(df_location_filtered))) {
-      print(paste("Skipping variable", var, "in location", location_name))
-      next
-    }
-
-    # Subset response variable
-    df_var_filtered <- df_location_filtered %>% filter(!is.na(.data[[var]]))
-
-    if (nrow(df_var_filtered) == 0) {
-      print(paste("Skipping variable", var, "in location", location_name))
-      next
-    }
-
-    # Calculate mean and se
-    summary_stats <- df_var_filtered %>%
-      group_by(treatment) %>%
-      summarise(mean = mean(.data[[var]], na.rm = TRUE),
-                se = sd(.data[[var]], na.rm = TRUE) / sqrt(n()),
-                .groups = "drop")
-
-    # Set color scheme
-    colors <- custom_treatment_colors_list[[location_name]]
-
-    # Determine title based on variable and location
-    plot_title <- paste(location_name, "Basin")
-
-    # Adjust y-axis settings properly
-    if (var %in% c("ngDNA_per_g_soil") & location_name %in% c("Hoare", "Fryxell")) {
-      y_axis_title <- element_blank()
-      y_axis_text <- element_blank()
-    } else {
-      y_axis_title <- element_text(size = 16)
-      y_axis_text <- element_text(size = 14)
-    }
-
-    # Create the plot
-    p <- ggplot(df_var_filtered, aes(x = treatment, y = .data[[var]], fill = treatment)) +
-      geom_jitter(size = 4, shape = 21, color = "black", width = 0.1, alpha = 0.55) +
-      geom_pointrange(data = summary_stats, 
-                      aes(x = treatment, y = mean, ymin = mean - se, ymax = mean + se, fill = treatment),
-                      size = 2, shape = 21, color = "black", stroke = 0.5, alpha = 0.35) +
-      labs(title = plot_title, y = y_axis_labels[[var]]) +
-      guides(fill = "none") +
-      scale_fill_manual(values = colors) +
-      scale_y_continuous(limits = y_axis_limits_d[[var]], breaks = y_breaks_d[[var]]) +
-      theme_bw() +
-      theme(
-        plot.title = element_text(size = 14),
-        axis.title.x = element_blank(),
-        axis.text.x = element_text(size = 14),
-        axis.title.y = y_axis_title,
-        axis.text.y = y_axis_text,
-        axis.ticks.y = element_blank(),
-        panel.grid.minor.x = element_blank(),
-        panel.grid.major.x = element_blank(),
-        panel.grid.minor.y = element_blank()
-      )
-
-    # Apply significance groupings **only if they exist**
-    sig_grp_key <- paste(location_name, var, sep = "_")
-    
-    if (sig_grp_key == "Bonney_ngDNA_per_g_soil") {
-      # Manually enter significance groupings
-      sig_grp <- data.frame(
-        treatment = c("bulk", "CTRL", "N", "P", "NP"),
-        sig_grps = c("a", "ab", "b", "c", "d")  # Replace these with your manual assignments
-      )
-    } else {
-      sig_grp <- sig_groups_emmeans_exp[[sig_grp_key]]
-    }
-
-    if (!is.null(sig_grp) && nrow(sig_grp) > 0) {
-      label.y <- y_axis_limits_d[[var]][2] - (y_axis_limits_d[[var]][2] * 0.01)
-
-      p <- p + geom_text(data = sig_grp, aes(x = treatment, label = sig_grps), y = label.y, 
-                         size = 6, fontface = "bold", color = "black")
-    }
-
-
-    # Use simplified key for storing in list
-    location_var <- paste(location_name, var, sep = "_")
-    treatment_plots_dna_2[[location_var]] <- p
-
-    # Display each plot (optional)
-    print(p)
-  }
-}
-
-```
-
-```{r plot combine dna}
-#combine plots
-combined_dna_all <- treatment_plots_dna_2[["Bonney_ngDNA_per_g_soil"]] + treatment_plots_dna_2[["Hoare_ngDNA_per_g_soil"]] + treatment_plots_dna_2[["Fryxell_ngDNA_per_g_soil"]] + plot_layout(ncol = 3)
-
-# Print the combined plot to the console
-print(combined_dna_all)
-
-# Define the file path dynamically
-file_path <- file.path(sub.directory.1.1.2.2.fp,
-                       paste0("MDV-soils-nutrient-limitation-Expr_DNA_combined_plot"))
-
-# Save the combined plot in multiple formats
-ggsave(filename = paste0(file_path, ".jpeg"), plot = combined_dna_all, width = 9, height = 6, dpi = 300)
-ggsave(filename = paste0(file_path, ".pdf"), plot = combined_dna_all, width = 9, height = 6)
-ggsave(filename = paste0(file_path, ".svg"), plot = combined_dna_all, width = 9, height = 6)
 
 ```
 
