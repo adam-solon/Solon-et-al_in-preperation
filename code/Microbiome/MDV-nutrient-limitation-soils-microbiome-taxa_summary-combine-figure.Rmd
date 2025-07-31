@@ -1,0 +1,327 @@
+---
+title: "McMurdo Dry Valleys Nutrient Limitation"
+subtitle: "  \n Microbiome - Taxonomic Summary - Combined Figure"
+author: "Adam J. Solon"
+date: "`r Sys.Date()`"
+#output: html_document
+output: 
+  pdf_document:
+    toc: TRUE
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+    keep_md: true
+fontsize: 12pt
+#editor_options: 
+#  chunk_output_type: console
+---
+  
+# Script Summary  
+This script combined the individual figures for the cyanobacteria and photosynthetic microeukaryotes taxonomic summaries.
+
+### Steps of this pipeline:  
+### Steps of this pipeline:  
+1.  Create and organize directories
+2.  Load R packages
+3.  Input files
+4.  Format Files
+5.  Cyanobacteria summary - rarefied data
+6. Save files and figures
+  
+```{r echo = FALSE, include = FALSE, set.seed(461)}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(include = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(cache = TRUE)
+
+```
+
+# Begin pipeline  
+```{r, echo = FALSE, include = FALSE}
+# Change identifiers to your system and file naming. 
+user <- "F:"
+directory <- "/Projects"
+project <- "/CryoHoles/Studies"
+study <- "/Soils-Nutrient-Limitation-Growth_Solon-et-al"
+
+sub.directory.2 <- "/analyses"
+sub.directory.2.1 <- "/microbiome"
+sub.directory.2.1.1 <- "/amplicons"
+sub.directory.2.1.1.1 <- "/16s"
+sub.directory.2.1.1.1.1 <- "/taxonomic_summary"
+sub.directory.2.1.1.1.1.1 <- "/plots"
+sub.directory.2.1.1.2 <- "/18s"
+sub.directory.2.1.1.2.1 <- "/taxonomic_summary"
+sub.directory.2.1.1.2.1.1 <- "/plots"
+sub.directory.2.1.1.3 <- "/combine"
+sub.directory.2.1.1.3.1 <- "/taxonomic_summary"
+sub.directory.2.1.1.3.1.1 <- "/plots"
+
+```
+
+### Set pathways and create directories  
+
+```{r set paths for pipeline}
+# First define the project and project directories. 
+
+# Create pathway for pipeline
+###################################################
+path.fp <- paste0(user, directory, project, study)
+if (!dir.exists(path.fp)) dir.create(path.fp)
+
+```
+
+```{r set paths for analyses}
+#sub.directory.2 analyses
+###################################################
+sub.directory.2.fp <- paste0(path.fp, sub.directory.2)
+if (!dir.exists(sub.directory.2.fp)) dir.create(sub.directory.2.fp)
+
+# Create sub-directory  microbiome
+###################################################
+sub.directory.2.1.fp <- paste0(sub.directory.2.fp, sub.directory.2.1)
+if (!dir.exists(sub.directory.2.1.fp)) dir.create(sub.directory.2.1.fp)
+
+# Create sub-directory amplicons
+###################################################
+sub.directory.2.1.1.fp <- paste0(sub.directory.2.1.fp, sub.directory.2.1.1)
+if (!dir.exists(sub.directory.2.1.1.fp)) dir.create(sub.directory.2.1.1.fp)
+
+# Create sub-directory 16s
+###################################################
+sub.directory.2.1.1.1.fp <- paste0(sub.directory.2.1.1.fp, sub.directory.2.1.1.1)
+if (!dir.exists(sub.directory.2.1.1.1.fp)) dir.create(sub.directory.2.1.1.1.fp)
+
+# Create sub-directory taxonomic summary
+###################################################
+sub.directory.2.1.1.1.1.fp <- paste0(sub.directory.2.1.1.1.fp, sub.directory.2.1.1.1.1)
+if (!dir.exists(sub.directory.2.1.1.1.1.fp)) dir.create(sub.directory.2.1.1.1.1.fp)
+
+# Create sub-directory plots
+###################################################
+sub.directory.2.1.1.1.1.1.fp <- paste0(sub.directory.2.1.1.1.1.fp, sub.directory.2.1.1.1.1.1)
+if (!dir.exists(sub.directory.2.1.1.1.1.1.fp)) dir.create(sub.directory.2.1.1.1.1.1.fp)
+
+# Create sub-directory 18s
+###################################################
+sub.directory.2.1.1.2.fp <- paste0(sub.directory.2.1.1.fp, sub.directory.2.1.1.2)
+if (!dir.exists(sub.directory.2.1.1.2.fp)) dir.create(sub.directory.2.1.1.2.fp)
+
+# Create sub-directory taxonomic summary
+###################################################
+sub.directory.2.1.1.2.1.fp <- paste0(sub.directory.2.1.1.2.fp, sub.directory.2.1.1.2.1)
+if (!dir.exists(sub.directory.2.1.1.2.1.fp)) dir.create(sub.directory.2.1.1.2.1.fp)
+
+# Create sub-directory plots
+###################################################
+sub.directory.2.1.1.2.1.1.fp <- paste0(sub.directory.2.1.1.2.1.fp, sub.directory.2.1.1.2.1.1)
+if (!dir.exists(sub.directory.2.1.1.2.1.1.fp)) dir.create(sub.directory.2.1.1.2.1.1.fp)
+
+# Create sub-directory combine
+###################################################
+sub.directory.2.1.1.3.fp <- paste0(sub.directory.2.1.1.fp, sub.directory.2.1.1.3)
+if (!dir.exists(sub.directory.2.1.1.3.fp)) dir.create(sub.directory.2.1.1.3.fp)
+
+# Create sub-directory taxonomic summary
+###################################################
+sub.directory.2.1.1.3.1.fp <- paste0(sub.directory.2.1.1.3.fp, sub.directory.2.1.1.3.1)
+if (!dir.exists(sub.directory.2.1.1.3.1.fp)) dir.create(sub.directory.2.1.1.3.1.fp)
+
+# Create sub-directory plots
+###################################################
+sub.directory.2.1.1.3.1.1.fp <- paste0(sub.directory.2.1.1.3.1.fp, sub.directory.2.1.1.3.1.1)
+if (!dir.exists(sub.directory.2.1.1.3.1.1.fp)) dir.create(sub.directory.2.1.1.3.1.1.fp)
+
+```
+
+### Session Information  
+```{r Install and load packages}
+# install.packages("tidyverse")
+# install.packages("knitr")
+# install.packages("dplyr")
+# install.packages("phyloseq")
+# install.packages("grid")
+# install.packages("gridExtra")
+# install.packages("patchwork")
+# install.packages("car")
+# install.packages("nortest")
+# install.packages("dunn.test")
+
+library(knitr); packageVersion("knitr")
+library(tidyverse); packageVersion("tidyverse")
+library(dplyr); packageVersion("dplyr")
+library(grid); packageVersion("grid")
+library(gridExtra); packageVersion("gridExtra")
+library(patchwork); packageVersion("patchwork")
+
+```  
+
+* r version: `r getRversion()`
+* RStudio version: `r rstudioapi::versionInfo()$version`
+* r packages:  
+  knitr, `r packageVersion("knitr")`  
+  tidyverse, `r packageVersion("tidyverse")`  
+  dplyr, `r packageVersion("dplyr")`
+  grid, `r packageVersion("grid")`  
+  gridExtra, `r packageVersion("gridExtra")`  
+  patchwork, `r packageVersion("patchwork")`
+  
+### Input files
+1. ggplot objects from r scripts - 'MDV-nutrient-limitation-soils-microbiome-taxa_summary-16s.Rmd' and 'MDV-nutrient-limitation-soils-microbiome-taxa_summary-18s.Rmd' 
+
+```{r import ggplot objects}
+
+#import 16s ggplot objects  
+p.fam.bn <- readRDS(paste0(sub.directory.2.1.1.1.1.1.fp, "/p.fam.bn.rds"))
+p.fam.hr <- readRDS(paste0(sub.directory.2.1.1.1.1.1.fp, "/p.fam.hr.rds"))
+p.fam.fx <- readRDS(paste0(sub.directory.2.1.1.1.1.1.fp, "/p.fam.fx.rds"))
+
+#import 18s ggplot objects
+p.cld.bn <- readRDS(paste0(sub.directory.2.1.1.2.1.1.fp, "/p.cld.bn.rds"))
+p.cld.hr <- readRDS(paste0(sub.directory.2.1.1.2.1.1.fp, "/p.cld.hr.rds"))
+p.cld.fx <- readRDS(paste0(sub.directory.2.1.1.2.1.1.fp, "/p.cld.fx.rds"))
+
+```
+
+```{r display 16s bn plot}
+# Extract the legend from 16s bonney plot
+leg.16s <- ggplotGrob(p.fam.bn)$grobs[[which(sapply(ggplotGrob(p.fam.bn)$grobs, function(x) x$name) == "guide-box")]]
+
+# Convert legend into a patchwork-compatible element
+leg.16s.1 <- wrap_elements(full = leg.16s)
+
+#display
+p.fam.bn.1 <- p.fam.bn + theme(plot.subtitle = element_text(size = 14), 
+                               axis.title.x = element_blank(),
+                               axis.text.x = element_blank(),
+                               axis.text.y = element_text(size = 12),
+                               legend.position = "none",
+                               legend.background = element_rect(fill = "grey90", colour = "grey50", size = 0.5),
+                               strip.text.x = element_text(size = 12)) 
+
+#display
+p.fam.bn.1
+
+```
+
+```{r display 16s hr plot}
+#display
+p.fam.hr.1 <- p.fam.hr + theme(plot.title = element_text(size = 14), 
+                               axis.title.x = element_blank(),
+                               axis.text.x = element_blank(),
+                               axis.title.y = element_text(size = 16),
+                               axis.text.y = element_text(size = 14),
+                               legend.position = "none",
+                               legend.background = element_rect(fill = "grey90", colour = "grey50", size = 0.5),
+                               strip.text.x = element_text(size = 12)) 
+
+#display
+p.fam.hr.1
+
+```
+
+```{r display 16s fx plot}
+# Define custom labels for the x-axis
+fx_labels <- c(
+  "FXM_01" = "C.1", "FXM_02" = "C.2", "FXM_06" = "C.3", "FXM_08" = "C.4", "FXM_14" = "C.5",
+  "FXM_04" = "N.1", "FXM_11" = "N.2", "FXM_15" = "N.3", "FXM_16" = "N.4", "FXM_20" = "N.5",
+  "FXM_05" = "P.1", "FXM_07" = "P.2", "FXM_09" = "P.3", "FXM_18" = "P.4", "FXM_19.2" = "P.5",
+  "FXM_03" = "NP.1", "FXM_10" = "NP.2", "FXM_12" = "NP.3", "FXM_13" = "NP.4", "FXM_17" = "NP.5",
+  "FX_Bulk_A" = "B.1", "FX_Bulk_B" = "B.2", "FX_Bulk_C" = "B.3", "FX_Bulk_D" = "B.4", 
+  "FX_Bulk_E" = "B.5", "FX_Bulk_F" = "B.6"
+)
+
+#display
+p.fam.fx.1 <- p.fam.fx + theme(plot.title = element_text(size = 14), 
+                               axis.title.x = element_blank(),,
+                               axis.text.x = element_blank(), #axis.text.x = element_text(size = 10),
+                               axis.title.y = element_blank(),
+                               axis.text.y = element_text(size = 12),
+                               legend.position = "none",
+                               legend.background = element_rect(fill = "grey90", colour = "grey50", size = 0.5),
+                               strip.text.x = element_text(size = 12))
+
+#display
+p.fam.fx.1
+
+```
+
+```{r display 18s bn plot}
+# Extract the legend from 16s bonney plot
+leg.18s <- ggplotGrob(p.cld.bn)$grobs[[which(sapply(ggplotGrob(p.fam.bn)$grobs, function(x) x$name) == "guide-box")]]
+
+# Convert legend into a patchwork-compatible element
+leg.18s.1 <- wrap_elements(full = leg.18s)
+
+#display
+p.cld.bn.1 <- p.cld.bn + theme(plot.subtitle = element_text(size = 14), 
+                               axis.title.x = element_blank(),
+                               axis.text.x = element_blank(),
+                               axis.text.y = element_text(size = 12),
+                               legend.position = "none",
+                               legend.background = element_rect(fill = "grey90", colour = "grey50", size = 0.5),
+                               strip.text.x = element_text(size = 12))
+
+#display
+p.cld.bn.1
+
+```
+
+```{r display 18s hr plot}
+#adjust
+p.cld.hr.1 <- p.cld.hr + theme(plot.title = element_text(size = 14), 
+                               axis.title.x = element_blank(),
+                               axis.text.x = element_blank(),
+                               axis.title.y = element_text(size = 16),
+                               axis.text.y = element_text(size = 14),
+                               legend.position = "none",
+                               legend.background = element_rect(fill = "grey90", colour = "grey50", size = 0.5),
+                               strip.text.x = element_text(size = 12))
+
+#display
+p.cld.hr.1
+
+```
+
+```{r display 18s fx plot}
+#adjust
+p.cld.fx.1 <- p.cld.fx + theme(plot.title = element_text(size = 14), 
+                               axis.title.x = element_text(size = 16),
+                               axis.text.x = element_text(size = 9),
+                               axis.title.y = element_blank(),
+                               axis.text.y = element_text(size = 14),
+                               legend.position = "none",
+                               legend.background = element_rect(fill = "grey90", colour = "grey50", size = 0.5),
+                               strip.text.x = element_text(size = 12))
+
+#display
+p.cld.fx.1
+
+```
+
+```{r combine plots}
+#combine plots
+combined_plot <- (plot_spacer() / leg.16s.1 / p.fam.bn.1 / p.fam.hr.1 / p.fam.fx.1 / plot_spacer() / leg.18s.1 / p.cld.bn.1 / p.cld.hr.1 / p.cld.fx.1) +
+  plot_layout(heights = c(0.5, 1, 3, 3, 3, 0.5, 1, 3, 3, 3))  # Adjust the last item's height
+
+#combined_plot <- (p.fam.bn.1 / p.fam.hr / p.fam.fx / legend_patch) + 
+ # plot_layout(heights = c(3, 3, 3, 1))  # Adjust the last item's height
+
+# Display the combined plot
+print(combined_plot)
+
+# Define file path for saving
+file_path <- file.path(sub.directory.2.1.1.3.1.1.fp, "MDV-nutrient-limitation-soils-Taxa-Summary-ALL-combined")
+
+# Save combined plot in multiple formats
+ggsave(filename = paste0(file_path, ".jpeg"), plot = combined_plot, width = 8.5, height = 11, dpi = 300)
+ggsave(filename = paste0(file_path, ".pdf"), plot = combined_plot, width = 8.5, height = 11)
+ggsave(filename = paste0(file_path, ".svg"), plot = combined_plot, width = 8.5, height = 11)
+
+#save R object
+saveRDS(combined_plot, paste0(sub.directory.2.1.1.3.1.1.fp, "/p.ALL.rds"))
+
+```
+
+##End of Script  
